@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X-Down 隐私政策 / Privacy Policy</title>
+    <style>
+        :root {
+            --primary-color: #1DA1F2;
+            --background-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 40px;
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+        h1 {
+            color: #ffffff;
+            font-size: 2.2rem;
+            margin: 0 0 10px 0;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1DA1F2 0%, #00b4d8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        h2 {
+            color: #ffffff;
+            font-size: 1.4rem;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+        }
+        p, li {
+            font-size: 1rem;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+        ul {
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .meta-info {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 0px;
+        }
+        .lang-switch {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #0d8ecf;
+        }
+        .highlight {
+            background-color: rgba(29, 161, 242, 0.1);
+            color: #38bdf8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="lang-switch">
+        <a href="#cn-version" class="btn" style="margin-right: 10px;">中文版</a>
+        <a href="#en-version" class="btn">English</a>
+    </div>
+
+    <div id="cn-version">
+        <div class="header">
+            <h1>X-Down 隐私政策</h1>
+            <p class="meta-info">生效日期：2026年6月21日</p>
+            <p class="meta-info">开发者联系邮箱：micalokiro@gmail.com</p>
+        </div>
+
+        <section>
+            <p>感谢使用 <strong>X-Down</strong>（以下简称为“本应用”）。本应用是一款专为帮助用户便捷地解析、下载 Twitter (X) 视频及展示本地下载历史而设计的离线优先应用。</p>
+            <p>我们非常重视您的隐私，并承诺在完全符合 <strong>Google Play 开发者政策</strong> 的前提下为您提供安全的服务。本隐私政策旨在向您清晰地说明我们如何处理您的数据。</p>
+
+            <h2>一、 我们收集的数据类型</h2>
+            <p><strong>X-Down 是一款完全离线运行、本地优先的数据处理应用。我们不会将您的个人数据上传到任何第三方服务器。</strong></p>
+            <ul>
+                <li><span class="highlight">剪切板内容：</span>为了方便一键粘贴和快捷解析链接，本应用会在您授权的情况下读取您复制的 URL 链接。该操作仅限本地匹配是否包含 Twitter (X) 视频分享格式，<strong style="color: #ffffff;">绝不会上传或存储任何剪切板内容</strong>。</li>
+                <li><span class="highlight">下载数据与媒体文件：</span>您下载的视频和媒体文件将自动保存在您设备的外部共享存储空间（如下载文件夹/相册中）。本地下载历史、作者排行、视频信息等数据仅存在本应用在您设备内的 SQLite 本地数据库中。</li>
+                <li><span class="highlight">网络状态：</span>本应用会请求访问您的网络连接状态（Wi-Fi/移动网络），以便为您提示并执行视频文件下载。</li>
+            </ul>
+
+            <h2>二、 数据的使用方式与特殊权限</h2>
+            <p>本应用需要并申请以下核心 Android 系统权限，所有权限仅用于实现相对应的功能服务：</p>
+            <ul>
+                <li><strong>INTERNET (互联网访问)：</strong>用于从服务器安全请求并获取 Twitter (X) 的媒体视频流数据以执行下载。</li>
+                <li><strong>ACCESS_NETWORK_STATE (网络状态访问)：</strong>用于检测网络类型与连接状态，避免在无网络或未期望的移动蜂窝网络下尝试下载。</li>
+                <li><strong>POST_NOTIFICATIONS (发送通知权限)：</strong>用于在视频完成下载时发送顶部通知与状态提示，提示用户下载进度、成功或失败，并支持点击通知快速拉起应用直接进入“本地历史”页面。</li>
+                <li><strong>WRITE_EXTERNAL_STORAGE / 媒体保存权限：</strong>用于将下载完成的视频文件和缩略图妥善写入并保存至公共共享媒体库，以便您能通过系统相册或其他媒体播放器进行离线浏览与使用。</li>
+            </ul>
+
+            <h2>三、 数据的存储与安全保护</h2>
+            <ul>
+                <li>我们的应用不会主动在网络上备份、传输或分享任何您的个人历史记录。除正常的数据下载过程需要向媒体链接服务器发送请求外，所有的配置项、解析的视频记录、下载成功数量及作者排行卡片均存储于您设备的 Android 沙盒中，不受外界侵犯。</li>
+                <li>若您想要彻底清除本应用的所有使用踪迹或保存的参数，您可以随时在本应用设置、或通过 Android 系统设置中的“清除应用数据”来彻底、不可恢复地擦除所有本地缓存和关联记录。</li>
+            </ul>
+
+            <h2>四、 第三方 SDK 的引入免责</h2>
+            <p>为了保障极致纯净和隐私体验：</p>
+            <ul>
+                <li>本应用<strong>不包含</strong>任何第三方的精准行为广告跟踪 SDK（如 AdMob、Unity Ads 等）。</li>
+                <li>本应用<strong>不引入</strong>任何侵入式的第三方行为分析工具。您所有的点击流和功能使用详情均在本地消化。</li>
+            </ul>
+
+            <h2>五、 儿童隐私</h2>
+            <p>本应用不针对任何 13 岁（或您所在辖区的法律规定的同等年龄）以下的儿童，也没有专为收集儿童特殊标识而设的功能。如果您发现我们无意中拥有了涉及儿童的数据，由于它们都存在本地，家长可通过清理该设备的本应用数据达到彻底清除的目的，或联系我们的邮箱进行咨询。</p>
+
+            <h2>六、 本隐私政策的更新</h2>
+            <p>根据 Google Play 政策的变化或本应用后续更新，我们可能会不定期地更新本隐私政策。任何修订信息都会一并呈递。建议您随时关注修改日期。</p>
+        </section>
+    </div>
+
+    <!-- Divider -->
+    <div style="border-top: 1px dashed var(--border-color); margin: 60px 0;"></div>
+
+    <div id="en-version">
+        <div class="header">
+            <h1>X-Down Privacy Policy</h1>
+            <p class="meta-info">Effective Date: June 21, 2026</p>
+            <p class="meta-info">Contact Email: micalokiro@gmail.com</p>
+        </div>
+
+        <section>
+            <p>Thank you for using <strong>X-Down</strong> (hereinafter referred to as "the App"). The App is a client-side, offline-first application designed to help users easily parse, download Twitter (X) videos, and display local download histories.</p>
+            <p>We take your privacy seriously and are committed to protecting it in full compliance with the <strong>Google Play Developer Policies</strong>. This privacy policy describes the types of information we process and how we handle it.</p>
+
+            <h2>1. Information We Collect</h2>
+            <p><strong>X-Down is a local-first application. We do NOT upload your personal data to any external web servers or third parties.</strong></p>
+            <ul>
+                <li><span class="highlight">Clipboard Data:</span> To facilitate paste actions and speedy download parsing, the App dynamically reads clipboard content upon your trigger. This is strictly kept local to screen and check for valid Twitter/X video URLs. <strong style="color: #ffffff;">We never store, write, or transmit your clipboard data outside your device.</strong></li>
+                <li><span class="highlight">Downloaded Media and History:</span> Your parsed and downloaded videos are saved inside your device's global storage directory (e.g., Download or Gallery folder). Download count logs, creator metrics, and past logs reside specifically inside your secure sandboxed SQLite database.</li>
+                <li><span class="highlight">Network Details:</span> Network connectivity state is accessed purely to determine active internet connection limits and format files safely.</li>
+            </ul>
+
+            <h2>2. App Permissions and Data Usage</h2>
+            <p>The App requests and uses the following permissions for operational compliance:</p>
+            <ul>
+                <li><strong>INTERNET:</strong> Required to establish requests with media servers and fetch high-speed static content for video caching.</li>
+                <li><strong>ACCESS_NETWORK_STATE:</strong> Employed to detect dynamic network structures to avoid unnecessary resource waste on cellular signals if unset.</li>
+                <li><strong>POST_NOTIFICATIONS:</strong> Used to offer feedback and notifications regarding media downloads, with click actions set up to route users straight to the file-tracking "History" tab inside the App.</li>
+                <li><strong>WRITE_EXTERNAL_STORAGE / Gallery Access:</strong> Crucial to saving parsed MP4 assets straight to the public directory for instant system playback support.</li>
+            </ul>
+
+            <h2>3. Security and Storage Protection</h2>
+            <ul>
+                <li>Because your application holds local data pipelines, safety relies on local system policies. All cached metrics, author standings, and custom state are strictly safeguarded in standard Android sandbox blocks.</li>
+                <li>You maintain full control of your app logs. You can wipe all history and locally tracked statistics by selecting "Clear App Data" inside system device options or uninstalling the app.</li>
+            </ul>
+
+            <h2>4. Third-Party Disclosures</h2>
+            <ul>
+                <li><strong>No Advertising SDKs:</strong> We do not integrate behavior tracker analytics or ad tools (such as AdMob), preserving structural data.</li>
+                <li><strong>No Analytics SDKs:</strong> There are no external pipelines transmitting background metrics.</li>
+            </ul>
+
+            <h2>5. Kids Privacy Compliance</h2>
+            <p>The App is not targeted towards children under the age of 13. If you believe your child has used this application, please note that all operational assets are strictly localized. You can completely erase any data via standard system cleanings or contact us via our developer address.</p>
+
+            <h2>6. Revisions to This Policy</h2>
+            <p>We may modify this document occasionally to align with Google Play policies. We encourage periodic reviews of this statement to ensure awareness of current updates.</p>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 X-Down Studio. All rights reserved.</p>
+    </footer>
+</div>
+
+</body>
+</html>
