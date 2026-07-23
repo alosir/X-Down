@@ -1,0 +1,6 @@
+{
+  "name": "X-Down",
+  "description": "X/Twitter Video Downloader and LAN Direct Casting Share Hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
