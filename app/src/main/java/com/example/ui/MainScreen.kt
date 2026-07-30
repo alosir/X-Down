@@ -76,6 +76,9 @@ fun MainScreen(viewModel: AppViewModel) {
     // Webview overlay state
     var activeWebViewUrl by remember { mutableStateOf<String?>(null) }
 
+    // Changelog overlay state
+    var showChangelog by remember { mutableStateOf(false) }
+
     val playVideo: (String, String, (() -> Unit)?) -> Unit = { url, title, downloadAction ->
         activePlaybackUrl = url
         activePlaybackTitle = title
@@ -118,6 +121,12 @@ fun MainScreen(viewModel: AppViewModel) {
                     label = { Text("作者排行", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Default.Star, contentDescription = "Rank") }
                 )
+                NavigationBarItem(
+                    selected = selectedTab == "about",
+                    onClick = { viewModel.setSelectedTab("about") },
+                    label = { Text("关于", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Info, contentDescription = "About") }
+                )
             }
         }
     ) { innerPadding ->
@@ -143,6 +152,11 @@ fun MainScreen(viewModel: AppViewModel) {
                     viewModel = viewModel,
                     onPlayVideo = playVideo,
                     onOpenUrl = { url -> activeWebViewUrl = url }
+                )
+                "about" -> AboutTab(
+                    viewModel = viewModel,
+                    onOpenUrl = { url -> activeWebViewUrl = url },
+                    onNavigateToChangelog = { showChangelog = true }
                 )
             }
 
@@ -303,6 +317,21 @@ fun MainScreen(viewModel: AppViewModel) {
                 }
             }
         )
+    }
+
+    // Changelog Dialog
+    if (showChangelog) {
+        Dialog(
+            onDismissRequest = { showChangelog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                ChangelogScreen(viewModel = viewModel, onBack = { showChangelog = false })
+            }
+        }
     }
 }
 

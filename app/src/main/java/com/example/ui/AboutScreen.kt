@@ -1,0 +1,292 @@
+package com.example.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.update.UpdateState
+
+// ==================== 关于页面 ====================
+@Composable
+fun AboutTab(viewModel: AppViewModel, onOpenUrl: (String) -> Unit, onNavigateToChangelog: () -> Unit) {
+    val context = LocalContext.current
+    val versionName = viewModel.getAppVersionName()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "关于",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item {
+                AboutItem(
+                    title = "关于项目",
+                    subtitle = "https://github.com/alosir/X-Down",
+                    icon = Icons.Default.Code,
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/alosir/X-Down"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            onOpenUrl("https://github.com/alosir/X-Down")
+                        }
+                    }
+                )
+            }
+
+            item {
+                AboutItem(
+                    title = "当前版本",
+                    subtitle = "v$versionName",
+                    icon = Icons.Default.Info,
+                    onClick = onNavigateToChangelog
+                )
+            }
+
+            item {
+                AboutItem(
+                    title = "通知权限",
+                    subtitle = "进入系统通知设置",
+                    icon = Icons.Default.Notifications,
+                    onClick = { viewModel.openAppNotificationSettings(context) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AboutItem(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "进入",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// ==================== 更新记录页面 ====================
+data class VersionLog(
+    val version: String,
+    val date: String,
+    val changes: List<String>
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+    val remoteLogs by viewModel.releaseLogs.collectAsStateWithLifecycle()
+
+    // 进入页面时加载远程更新记录
+    LaunchedEffect(Unit) {
+        viewModel.loadReleaseLogs()
+    }
+
+    val fallbackLogs = remember {
+        listOf(
+            VersionLog(
+                version = "1.4",
+                date = "2026-07-30",
+                changes = listOf(
+                    "新增「关于」页面：项目地址、当前版本、通知权限入口",
+                    "新增「更新记录」页面，展示近期版本更新日志",
+                    "支持应用内检查更新，发现新版本后自动下载安装包",
+                    "更新下载进度实时显示在系统通知栏，完成后点击通知即可安装"
+                )
+            ),
+            VersionLog(
+                version = "1.3",
+                date = "2026-07-23",
+                changes = listOf(
+                    "支持 Twitter/X 推文视频解析与多清晰度下载",
+                    "本地历史归档与离线播放",
+                    "作者排行统计",
+                    "剪贴板自动检测视频链接",
+                    "新增 User-Agent 与 401 错误处理"
+                )
+            )
+        )
+    }
+    val versionLogs = remoteLogs ?: fallbackLogs
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("更新记录", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { viewModel.checkForUpdate() }) {
+                        Text("检查更新")
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
+            when (val state = updateState) {
+                is UpdateState.Checking -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("正在检查更新...", fontSize = 13.sp)
+                    }
+                }
+                is UpdateState.NoUpdate -> {
+                    Text("当前已是最新版本", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                }
+                is UpdateState.UpdateAvailable -> {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "发现新版本 v${state.latestVersion}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = { viewModel.downloadAndInstallUpdate(state.downloadUrl) }) {
+                                Text("立即下载更新")
+                            }
+                        }
+                    }
+                }
+                is UpdateState.Downloading -> {
+                    Column {
+                        Text("正在下载更新...", fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { state.progress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${(state.progress * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                is UpdateState.DownloadSuccess -> {
+                    Text("下载完成，请从通知栏点击安装", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                }
+                is UpdateState.Error -> {
+                    Text(state.message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                }
+                else -> {}
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(versionLogs.size) { index ->
+                    val log = versionLogs[index]
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "v${log.version}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = log.date,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            log.changes.forEach { change ->
+                                Row(modifier = Modifier.padding(vertical = 2.dp)) {
+                                    Text("• ", color = MaterialTheme.colorScheme.primary)
+                                    Text(change, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

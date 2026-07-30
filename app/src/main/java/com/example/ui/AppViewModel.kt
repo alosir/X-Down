@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.download.DownloadManager
 import com.example.download.DownloadState
+import com.example.update.AppUpdateManager
+import com.example.update.UpdateState
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +33,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val repository = TweetRepository(db.tweetDownloadDao())
     private val downloadManager = DownloadManager.getInstance(application, repository)
+    private val appUpdateManager = AppUpdateManager(application)
 
     private val _selectedTab = MutableStateFlow("home")
     val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
@@ -272,5 +275,102 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val regex = "https?://(mobile\\.)?(vx|fx)?(twitter|x)\\.com/[a-zA-Z0-9_]+/status/\\d+".toRegex()
         val match = regex.find(text)
         return match?.value
+    }
+
+    // ==================== 应用更新 ====================
+    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    fun checkForUpdate() {
+        viewModelScope.launch {
+            _updateState.value = UpdateState.Checking
+            try {
+                val release = appUpdateManager.checkLatestRelease()
+                val latestTag = release.tag_name ?: throw Exception("未找到版本信息")
+                val currentVersion = getAppVersionName()
+                val hasUpdate = appUpdateManager.compareVersions(currentVersion, latestTag)
+                if (hasUpdate) {
+                    val apkAsset = release.assets?.firstOrNull { it.name?.endsWith(".apk") == true }
+                    val downloadUrl = apkAsset?.browser_download_url ?: throw Exception("未找到安装包下载地址")
+                    _updateState.value = UpdateState.UpdateAvailable(latestTag.removePrefix("v"), downloadUrl)
+                } else {
+                    _updateState.value = UpdateState.NoUpdate
+                }
+            } catch (e: Exception) {
+                _updateState.value = UpdateState.Error(e.message ?: "检查更新失败")
+            }
+        }
+    }
+
+    fun downloadAndInstallUpdate(downloadUrl: String) {
+        viewModelScope.launch {
+            try {
+                _updateState.value = UpdateState.Downloading(0f, 0L, 0L)
+                val apkFile = appUpdateManager.downloadApk(downloadUrl) { progress, downloaded, total ->
+                    _updateState.value = UpdateState.Downloading(progress, downloaded, total)
+                    appUpdateManager.showUpdateNotification(progress, downloaded, total)
+                }
+                _updateState.value = UpdateState.DownloadSuccess(apkFile)
+                appUpdateManager.showUpdateDownloadCompleteNotification(apkFile)
+            } catch (e: Exception) {
+                _updateState.value = UpdateState.Error(e.message ?: "下载更新失败")
+                appUpdateManager.cancelUpdateNotification()
+            }
+        }
+    }
+
+    fun resetUpdateState() {
+        _updateState.value = UpdateState.Idle
+    }
+
+    // 远程更新记录（null 表示尚未加载或加载失败，界面回退到内置日志）
+    private val _releaseLogs = MutableStateFlow<List<VersionLog>?>(null)
+    val releaseLogs: StateFlow<List<VersionLog>?> = _releaseLogs.asStateFlow()
+
+    fun loadReleaseLogs() {
+        viewModelScope.launch {
+            try {
+                val releases = appUpdateManager.fetchReleases()
+                if (releases.isNotEmpty()) {
+                    _releaseLogs.value = releases.map { release ->
+                        val changes = (release.body ?: "")
+                            .lines()
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .filter { !it.startsWith("#") }
+                            .map { it.removePrefix("- ").removePrefix("* ").trim() }
+                            .filter { it.isNotEmpty() }
+                            .take(10)
+                        VersionLog(
+                            version = (release.tag_name ?: "").removePrefix("v"),
+                            date = (release.published_at ?: "").take(10),
+                            changes = if (changes.isEmpty()) listOf(release.name ?: "版本更新") else changes
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun getAppVersionName(): String {
+        return try {
+            val pm = getApplication<Application>().packageManager
+            val packageName = getApplication<Application>().packageName
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(packageName, 0)
+            }
+            packageInfo.versionName ?: "1.3"
+        } catch (e: Exception) {
+            "1.3"
+        }
+    }
+
+    fun openAppNotificationSettings(context: android.content.Context) {
+        appUpdateManager.openNotificationSettings(context)
     }
 }
