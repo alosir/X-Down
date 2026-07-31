@@ -17,3 +17,6 @@ local.properties
 .env
 debug.keystore
 app/release/
+# 签名密钥（本地私有，勿提交）
+keystore.properties
+*.jks

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -6,12 +8,19 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
+// 签名配置：优先读环境变量，其次读项目根目录 keystore.properties（该文件已在 .gitignore 中忽略）
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+  keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.xdown.oifald"
+    applicationId = "com.alosir.xdown"
     minSdk = 24
     targetSdk = 36
     versionCode = 5
@@ -22,11 +31,14 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      storeFile = rootProject.file(
+        System.getenv("KEYSTORE_PATH")
+          ?: keystoreProperties.getProperty("storeFile")
+          ?: "my-upload-key.jks"
+      )
+      storePassword = System.getenv("STORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+      keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias") ?: "upload"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
     }
   }
 
