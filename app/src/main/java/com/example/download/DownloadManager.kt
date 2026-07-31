@@ -88,10 +88,8 @@ data class ActiveDownloadTask(
     private var thumbnailLoadAttempted = false
 
     companion object {
-        // v3：鸿蒙数字角标与通知强绑定，且只对"提醒类"(HIGH)通知产生角标。
-        // 静音/进度类渠道不产生角标，故改用与完成通知一致的 HIGH 级渠道，
-        // 配合 setOnlyAlertOnce 仅在开始下载时提醒一次，不造成持续打扰。
-        private const val PROGRESS_CHANNEL_ID = "download_progress_channel_v3"
+        // v4：通知与角标解耦（渠道 setShowBadge(false)），角标改由 ShortcutBadger 统一写入
+        private const val PROGRESS_CHANNEL_ID = "download_progress_channel_v4"
     }
 
     // 将位图截取为居中的正方形
@@ -104,14 +102,16 @@ data class ActiveDownloadTask(
 
     private fun createProgressNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // HIGH 级提醒渠道（与下载完成通知同级），鸿蒙只对这类通知产生数字角标
+            // setShowBadge(false)：通知不参与角标，使 ShortcutBadger 写入的角标成为唯一来源
             val channel = NotificationChannel(
                 PROGRESS_CHANNEL_ID,
                 "下载进度",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "显示视频下载任务的实时进度"
-                setShowBadge(true)
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -497,10 +497,14 @@ data class ActiveDownloadTask(
             val channelId = "download_finished_channel"
             val channelName = "下载完成通知"
             val importance = NotificationManager.IMPORTANCE_HIGH
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // 删除旧渠道再重建，确保 setShowBadge(false) 对旧安装生效
+            manager.deleteNotificationChannel(channelId)
             val channel = NotificationChannel(channelId, channelName, importance).apply {
                 description = "当推特视频完成下载时发送此通知"
+                // 通知不参与角标，角标由 ShortcutBadger 统一写入
+                setShowBadge(false)
             }
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
     }

@@ -166,6 +166,13 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val versionLogs = remember {
         listOf(
             VersionLog(
+                version = "1.5.4",
+                date = "2026-07-31",
+                changes = listOf(
+                    "修复桌面数字角标不显示的问题"
+                )
+            ),
+            VersionLog(
                 version = "1.5.3",
                 date = "2026-07-31",
                 changes = listOf(

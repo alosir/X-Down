@@ -56,14 +56,18 @@ class AppUpdateManager(private val context: Context) {
 
     private fun createUpdateNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // 删除旧渠道再重建，确保 setShowBadge(false) 对旧安装生效
+            manager.deleteNotificationChannel(updateChannelId)
             val channel = NotificationChannel(
                 updateChannelId,
                 "应用更新",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "应用版本更新下载进度"
+                // 通知不参与角标，角标由 ShortcutBadger 统一写入
+                setShowBadge(false)
             }
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
     }
