@@ -76,9 +76,8 @@ data class ActiveDownloadTask(
     }
 
     private suspend fun downloadLoop() {
-        // Sanitize authorName for folder path
-        val sanitizedAuthor = authorHandle.replace("[\"/\\\\:*?<>|]".toRegex(), "_")
-        val finalFolder = File(outputDir, sanitizedAuthor)
+        // 统一保存到 X-Down 根文件夹，不再按作者创建子文件夹
+        val finalFolder = outputDir
         if (!finalFolder.exists()) {
             finalFolder.mkdirs()
         }
@@ -123,7 +122,7 @@ data class ActiveDownloadTask(
 
             if (destFile.exists()) {
                 _state.value = DownloadState.Success
-                val finalPath = exportVideoToGallery(destFile, sanitizedAuthor, "$targetFileName.mp4")
+                val finalPath = exportVideoToGallery(destFile, "$targetFileName.mp4")
                 updateEntityCompleted(finalPath)
                 onTaskUpdated()
                 onDownloadSuccess(authorHandle)
@@ -236,7 +235,7 @@ data class ActiveDownloadTask(
                 if (tempFile.exists() && tempFile.length() >= totalBytes) {
                     tempFile.renameTo(destFile)
                     _state.value = DownloadState.Success
-                    val finalPath = exportVideoToGallery(destFile, sanitizedAuthor, "$targetFileName.mp4")
+                    val finalPath = exportVideoToGallery(destFile, "$targetFileName.mp4")
                     updateEntityCompleted(finalPath)
                     onTaskUpdated()
 
@@ -281,19 +280,19 @@ data class ActiveDownloadTask(
         }
     }
 
-    private fun exportVideoToGallery(localFile: File, subFolder: String, fileName: String): String {
+    private fun exportVideoToGallery(localFile: File, fileName: String): String {
         try {
             val resolver = context.contentResolver
             val contentValues = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, "${android.os.Environment.DIRECTORY_MOVIES}/X-Down/$subFolder")
+                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, "${android.os.Environment.DIRECTORY_MOVIES}/X-Down")
                     put(android.provider.MediaStore.Video.Media.IS_PENDING, 1)
                 } else {
                     val publicDir = java.io.File(
                         android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES),
-                        "X-Down/$subFolder"
+                        "X-Down"
                     )
                     if (!publicDir.exists()) publicDir.mkdirs()
                     val targetFile = java.io.File(publicDir, fileName)

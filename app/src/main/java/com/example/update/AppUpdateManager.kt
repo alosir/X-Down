@@ -22,7 +22,6 @@ data class GitHubRelease(
     val tag_name: String?,
     val name: String?,
     val body: String?,
-    val published_at: String?,
     val assets: List<GitHubAsset>?
 )
 
@@ -80,21 +79,6 @@ class AppUpdateManager(private val context: Context) {
         val body = response.body ?: throw Exception("检查更新失败：空响应")
         val adapter = moshi.adapter(GitHubRelease::class.java)
         adapter.fromJson(body.string()) ?: throw Exception("解析更新信息失败")
-    }
-
-    suspend fun fetchReleases(): List<GitHubRelease> = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("https://api.github.com/repos/alosir/X-Down/releases")
-            .header("Accept", "application/vnd.github.v3+json")
-            .build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw Exception("获取更新记录失败：HTTP ${response.code}")
-        }
-        val body = response.body ?: throw Exception("获取更新记录失败：空响应")
-        val type = com.squareup.moshi.Types.newParameterizedType(List::class.java, GitHubRelease::class.java)
-        val adapter = moshi.adapter<List<GitHubRelease>>(type)
-        adapter.fromJson(body.string()) ?: emptyList()
     }
 
     fun compareVersions(current: String, latest: String): Boolean {

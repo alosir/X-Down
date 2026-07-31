@@ -294,12 +294,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val downloadUrl = apkAsset?.browser_download_url ?: throw Exception("未找到安装包下载地址")
                     _updateState.value = UpdateState.UpdateAvailable(latestTag.removePrefix("v"), downloadUrl)
                 } else {
-                    _updateState.value = UpdateState.NoUpdate
+                    _updateState.value = UpdateState.Idle
+                    showTopBubble("当前已是最新版本")
                 }
             } catch (e: Exception) {
-                _updateState.value = UpdateState.Error(e.message ?: "检查更新失败")
+                if (isNetworkError(e)) {
+                    _updateState.value = UpdateState.Idle
+                    showTopBubble("网络异常，请检查网络连接")
+                } else {
+                    _updateState.value = UpdateState.Error(e.message ?: "检查更新失败")
+                }
             }
         }
+    }
+
+    private fun isNetworkError(e: Throwable): Boolean {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is java.net.UnknownHostException ||
+                t is java.net.ConnectException ||
+                t is java.net.SocketTimeoutException ||
+                t is java.net.NoRouteToHostException ||
+                t is javax.net.ssl.SSLException
+            ) {
+                return true
+            }
+            t = t.cause
+        }
+        return false
     }
 
     fun downloadAndInstallUpdate(downloadUrl: String) {
@@ -321,37 +343,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetUpdateState() {
         _updateState.value = UpdateState.Idle
-    }
-
-    // 远程更新记录（null 表示尚未加载或加载失败，界面回退到内置日志）
-    private val _releaseLogs = MutableStateFlow<List<VersionLog>?>(null)
-    val releaseLogs: StateFlow<List<VersionLog>?> = _releaseLogs.asStateFlow()
-
-    fun loadReleaseLogs() {
-        viewModelScope.launch {
-            try {
-                val releases = appUpdateManager.fetchReleases()
-                if (releases.isNotEmpty()) {
-                    _releaseLogs.value = releases.map { release ->
-                        val changes = (release.body ?: "")
-                            .lines()
-                            .map { it.trim() }
-                            .filter { it.isNotEmpty() }
-                            .filter { !it.startsWith("#") }
-                            .map { it.removePrefix("- ").removePrefix("* ").trim() }
-                            .filter { it.isNotEmpty() }
-                            .take(10)
-                        VersionLog(
-                            version = (release.tag_name ?: "").removePrefix("v"),
-                            date = (release.published_at ?: "").take(10),
-                            changes = if (changes.isEmpty()) listOf(release.name ?: "版本更新") else changes
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 
     fun getAppVersionName(): String {

@@ -2,6 +2,8 @@ package com.example.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -137,15 +140,21 @@ data class VersionLog(
 @Composable
 fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
-    val remoteLogs by viewModel.releaseLogs.collectAsStateWithLifecycle()
+    val topBubbleMessage by viewModel.topBubbleMessage.collectAsStateWithLifecycle()
 
-    // 进入页面时加载远程更新记录
-    LaunchedEffect(Unit) {
-        viewModel.loadReleaseLogs()
-    }
-
-    val fallbackLogs = remember {
+    // 更新记录为应用内置（不实时拉取 GitHub，避免网络不可达）
+    // 面向普通用户撰写：过滤与用户无关的信息（包名变更、纯开发向改动等）
+    val versionLogs = remember {
         listOf(
+            VersionLog(
+                version = "1.4.1",
+                date = "2026-07-31",
+                changes = listOf(
+                    "更新记录改为应用内置，浏览不再受网络影响",
+                    "检查更新结果改为顶部气泡提示，网络异常提示更友好",
+                    "下载视频统一保存至 X-Down 文件夹，查找管理更方便"
+                )
+            ),
             VersionLog(
                 version = "1.4",
                 date = "2026-07-30",
@@ -169,25 +178,25 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
             )
         )
     }
-    val versionLogs = remoteLogs ?: fallbackLogs
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("更新记录", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("更新记录", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { viewModel.checkForUpdate() }) {
+                            Text("检查更新")
+                        }
                     }
-                },
-                actions = {
-                    TextButton(onClick = { viewModel.checkForUpdate() }) {
-                        Text("检查更新")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+                )
+            }
+        ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -201,9 +210,6 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("正在检查更新...", fontSize = 13.sp)
                     }
-                }
-                is UpdateState.NoUpdate -> {
-                    Text("当前已是最新版本", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                 }
                 is UpdateState.UpdateAvailable -> {
                     Card(
@@ -285,6 +291,39 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+        // 顶部气泡提示（与下载完成提示样式一致）
+        topBubbleMessage?.let { msg ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "提示",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = msg,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
