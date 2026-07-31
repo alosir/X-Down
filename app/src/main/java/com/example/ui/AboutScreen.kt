@@ -29,6 +29,7 @@ import com.example.update.UpdateState
 fun AboutTab(viewModel: AppViewModel, onOpenUrl: (String) -> Unit, onNavigateToChangelog: () -> Unit) {
     val context = LocalContext.current
     val versionName = viewModel.getAppVersionName()
+    val hasNewVersion by viewModel.hasNewVersion.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -65,7 +66,18 @@ fun AboutTab(viewModel: AppViewModel, onOpenUrl: (String) -> Unit, onNavigateToC
                     title = "当前版本",
                     subtitle = "v$versionName",
                     icon = Icons.Default.Info,
-                    onClick = onNavigateToChangelog
+                    onClick = onNavigateToChangelog,
+                    trailing = if (hasNewVersion) {
+                        {
+                            Text(
+                                text = "有新版本",
+                                color = androidx.compose.ui.graphics.Color(0xFFFF8C00),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                        }
+                    } else null
                 )
             }
 
@@ -86,7 +98,8 @@ fun AboutItem(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -120,6 +133,7 @@ fun AboutItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
+            trailing?.invoke()
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "进入",
@@ -142,10 +156,26 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val topBubbleMessage by viewModel.topBubbleMessage.collectAsStateWithLifecycle()
 
+    // 每天首次进入本页面时自动触发一次检查更新
+    LaunchedEffect(Unit) {
+        viewModel.maybeAutoCheckUpdate()
+    }
+
     // 更新记录为应用内置（不实时拉取 GitHub，避免网络不可达）
     // 面向普通用户撰写：过滤与用户无关的信息（包名变更、纯开发向改动等）
     val versionLogs = remember {
         listOf(
+            VersionLog(
+                version = "1.4.2",
+                date = "2026-07-31",
+                changes = listOf(
+                    "新增下载任务实时进度通知，下载完成后自动消失",
+                    "新增桌面角标，实时显示下载队列中的任务数量",
+                    "支持每天自动检查新版本，有更新时及时提醒",
+                    "修复新版本安装包下载完成后通知无法点击安装的问题",
+                    "解析结果卡片支持手动关闭"
+                )
+            ),
             VersionLog(
                 version = "1.4.1",
                 date = "2026-07-31",
@@ -204,13 +234,6 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                 .padding(16.dp)
         ) {
             when (val state = updateState) {
-                is UpdateState.Checking -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("正在检查更新...", fontSize = 13.sp)
-                    }
-                }
                 is UpdateState.UpdateAvailable -> {
                     Card(
                         shape = RoundedCornerShape(12.dp),

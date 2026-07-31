@@ -79,6 +79,15 @@ fun MainScreen(viewModel: AppViewModel) {
     // Changelog overlay state
     var showChangelog by remember { mutableStateOf(false) }
 
+    // 系统通知点击后请求打开《更新记录》页
+    val openChangelogEvent by viewModel.openChangelogEvent.collectAsStateWithLifecycle()
+    LaunchedEffect(openChangelogEvent) {
+        if (openChangelogEvent) {
+            showChangelog = true
+            viewModel.consumeOpenChangelog()
+        }
+    }
+
     val playVideo: (String, String, (() -> Unit)?) -> Unit = { url, title, downloadAction ->
         activePlaybackUrl = url
         activePlaybackTitle = title
@@ -490,7 +499,22 @@ fun DownloaderTab(viewModel: AppViewModel) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // 右上角删除按钮：手动关闭解析结果卡片
+                        IconButton(
+                            onClick = { viewModel.clearParseResult() },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "关闭解析结果",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.padding(16.dp)) {
                         // Author Metadata row
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             AsyncImage(
@@ -626,6 +650,7 @@ fun DownloaderTab(viewModel: AppViewModel) {
                             Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("立即下载", fontWeight = FontWeight.Bold)
+                        }
                         }
                     }
                 }

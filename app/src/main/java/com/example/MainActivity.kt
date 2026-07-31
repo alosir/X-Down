@@ -70,6 +70,10 @@ class MainActivity : ComponentActivity() {
     if (openTab != null) {
       viewModel.setSelectedTab(openTab)
     }
+    if (intent?.getStringExtra("open_changelog") == "true") {
+      viewModel.setSelectedTab("about")
+      viewModel.requestOpenChangelog()
+    }
   }
 }
 

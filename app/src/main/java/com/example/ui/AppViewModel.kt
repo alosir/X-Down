@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
@@ -15,7 +16,11 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import me.leolin.shortcutbadger.ShortcutBadger
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class ParseUiState(
     val isParsing: Boolean = false,
@@ -34,6 +39,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TweetRepository(db.tweetDownloadDao())
     private val downloadManager = DownloadManager.getInstance(application, repository)
     private val appUpdateManager = AppUpdateManager(application)
+    private val updatePrefs = application.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
 
     private val _selectedTab = MutableStateFlow("home")
     val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
@@ -83,6 +89,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ==================== 应用更新状态 ====================
+    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    // "有新版本"橘色标识
+    private val _hasNewVersion = MutableStateFlow(false)
+    val hasNewVersion: StateFlow<Boolean> = _hasNewVersion.asStateFlow()
+
+    // 请求打开《更新记录》页（供系统通知点击跳转）
+    private val _openChangelogEvent = MutableStateFlow(false)
+    val openChangelogEvent: StateFlow<Boolean> = _openChangelogEvent.asStateFlow()
+
     init {
         viewModelScope.launch {
             downloadManager.downloadCompletions.collect { authorHandle ->
@@ -91,6 +109,41 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 refreshFileStatus()
             }
         }
+
+        // 桌面角标：实时显示下载队列中（下载中/暂停/失败）的任务数
+        viewModelScope.launch {
+            var lastBadgeCount = -1
+            activeDownloads.collect { tasks ->
+                val count = tasks.count {
+                    val s = it.state.value
+                    s is DownloadState.Downloading || s is DownloadState.Paused || s is DownloadState.Failed
+                }
+                if (count != lastBadgeCount) {
+                    lastBadgeCount = count
+                    try {
+                        if (count > 0) {
+                            ShortcutBadger.applyCount(getApplication(), count)
+                        } else {
+                            ShortcutBadger.removeCount(getApplication())
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+
+        // 若用户已更新到存储的最新版本（或更高），清除"有新版本"标识
+        val storedLatest = updatePrefs.getString(KEY_LATEST_VERSION, null)
+        if (updatePrefs.getBoolean(KEY_HAS_NEW_VERSION, false) && storedLatest != null &&
+            !appUpdateManager.compareVersions(getAppVersionName(), storedLatest)
+        ) {
+            updatePrefs.edit().putBoolean(KEY_HAS_NEW_VERSION, false).apply()
+        }
+        _hasNewVersion.value = updatePrefs.getBoolean(KEY_HAS_NEW_VERSION, false)
+
+        // 每天至少一次的静默检查更新
+        maybeAutoCheckUpdate()
     }
 
     private val _parseState = MutableStateFlow(ParseUiState())
@@ -278,27 +331,59 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ==================== 应用更新 ====================
-    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
-    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+    fun requestOpenChangelog() {
+        _openChangelogEvent.value = true
+    }
 
-    fun checkForUpdate() {
+    fun consumeOpenChangelog() {
+        _openChangelogEvent.value = false
+    }
+
+    // 每天最多自动触发一次检查（APP 启动时与每天首次进入更新记录页时调用）
+    fun maybeAutoCheckUpdate() {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        if (updatePrefs.getString(KEY_LAST_CHECK_DATE, "") == today) return
+        updatePrefs.edit().putString(KEY_LAST_CHECK_DATE, today).apply()
+        checkForUpdate(silent = true)
+    }
+
+    fun checkForUpdate(silent: Boolean = false) {
         viewModelScope.launch {
+            if (!silent) {
+                showTopBubble("正在检查更新…")
+            }
             _updateState.value = UpdateState.Checking
             try {
                 val release = appUpdateManager.checkLatestRelease()
                 val latestTag = release.tag_name ?: throw Exception("未找到版本信息")
+                val latestVersion = latestTag.removePrefix("v")
                 val currentVersion = getAppVersionName()
                 val hasUpdate = appUpdateManager.compareVersions(currentVersion, latestTag)
                 if (hasUpdate) {
                     val apkAsset = release.assets?.firstOrNull { it.name?.endsWith(".apk") == true }
                     val downloadUrl = apkAsset?.browser_download_url ?: throw Exception("未找到安装包下载地址")
-                    _updateState.value = UpdateState.UpdateAvailable(latestTag.removePrefix("v"), downloadUrl)
+                    updatePrefs.edit()
+                        .putBoolean(KEY_HAS_NEW_VERSION, true)
+                        .putString(KEY_LATEST_VERSION, latestVersion)
+                        .apply()
+                    _hasNewVersion.value = true
+                    _updateState.value = UpdateState.UpdateAvailable(latestVersion, downloadUrl)
+                    if (silent) {
+                        appUpdateManager.showNewVersionAvailableNotification(latestVersion)
+                    }
                 } else {
+                    updatePrefs.edit().putBoolean(KEY_HAS_NEW_VERSION, false).apply()
+                    _hasNewVersion.value = false
                     _updateState.value = UpdateState.Idle
-                    showTopBubble("当前已是最新版本")
+                    if (!silent) {
+                        showTopBubble("当前已是最新版本")
+                    }
                 }
             } catch (e: Exception) {
-                if (isNetworkError(e)) {
+                if (silent) {
+                    // 静默检查：任何失败都不打扰用户，等待下次触发
+                    _updateState.value = UpdateState.Idle
+                } else if (isNetworkError(e)) {
                     _updateState.value = UpdateState.Idle
                     showTopBubble("网络异常，请检查网络连接")
                 } else {
@@ -363,5 +448,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openAppNotificationSettings(context: android.content.Context) {
         appUpdateManager.openNotificationSettings(context)
+    }
+
+    // 手动关闭首页解析结果卡片
+    fun clearParseResult() {
+        _parseState.value = ParseUiState()
+    }
+
+    companion object {
+        private const val KEY_LAST_CHECK_DATE = "last_check_date"
+        private const val KEY_HAS_NEW_VERSION = "has_new_version"
+        private const val KEY_LATEST_VERSION = "latest_version"
     }
 }

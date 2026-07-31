@@ -67,7 +67,7 @@ interface FxTwitterService {
     @GET("/status/{tweetId}")
     suspend fun getTweetStatus(
         @Path("tweetId") tweetId: String,
-        @Header("User-Agent") userAgent: String = "X-Down/1.4.1 (Android)"
+        @Header("User-Agent") userAgent: String = "X-Down/1.4.2 (Android)"
     ): FxTwitterResponse
 
     companion object {
@@ -79,7 +79,7 @@ interface FxTwitterService {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .addInterceptor { chain ->
                     val request = chain.request().newBuilder()
-                        .header("User-Agent", "X-Down/1.4.1 (Android)")
+                        .header("User-Agent", "X-Down/1.4.2 (Android)")
                         .build()
                     chain.proceed(request)
                 }

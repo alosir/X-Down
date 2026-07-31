@@ -72,7 +72,79 @@ data class ActiveDownloadTask(
         isPausing = true
         job?.cancel()
         _state.value = DownloadState.Paused
+        cancelProgressNotification()
         onTaskUpdated()
+    }
+
+    // ==================== 下载进度系统通知 ====================
+    private val progressNotificationId = id.hashCode()
+    private var cachedThumbnail: android.graphics.Bitmap? = null
+    private var thumbnailLoadAttempted = false
+
+    private fun createProgressNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "download_progress_channel",
+                "下载进度",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "显示视频下载任务的实时进度"
+            }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private suspend fun ensureThumbnailLoaded() {
+        if (thumbnailLoadAttempted) return
+        thumbnailLoadAttempted = true
+        val thumbnailUrl = entity.thumbnailUrl
+        if (thumbnailUrl.isNullOrEmpty()) return
+        cachedThumbnail = withContext(Dispatchers.IO) {
+            try {
+                val loader = ImageLoader(context)
+                val request = ImageRequest.Builder(context)
+                    .data(thumbnailUrl)
+                    .allowHardware(false)
+                    .build()
+                val result = loader.execute(request)
+                if (result is SuccessResult) {
+                    (result.drawable as? BitmapDrawable)?.bitmap
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    private suspend fun showProgressNotification(progress: Float) {
+        try {
+            createProgressNotificationChannel()
+            ensureThumbnailLoaded()
+            val percent = (progress * 100).toInt()
+            val builder = NotificationCompat.Builder(context, "download_progress_channel")
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("正在下载 @${authorHandle} 的视频（$qualityLabel）")
+                .setContentText(title)
+                .setProgress(100, percent, percent <= 0)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+            cachedThumbnail?.let { builder.setLargeIcon(it) }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(progressNotificationId, builder.build())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun cancelProgressNotification() {
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(progressNotificationId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private suspend fun downloadLoop() {
@@ -156,6 +228,7 @@ data class ActiveDownloadTask(
                     downloadedBytes = currentDownloaded,
                     totalBytes = totalBytes
                 )
+                showProgressNotification(_state.value.let { (it as? DownloadState.Downloading)?.progress ?: 0f })
                 onTaskUpdated()
 
                 response = client.newCall(request).execute()
@@ -214,6 +287,7 @@ data class ActiveDownloadTask(
                             downloadedBytes = runningDownloaded,
                             totalBytes = totalBytes
                         )
+                        showProgressNotification(progress.coerceIn(0f, 1f))
 
                         lastUpdatedTime = now
                         lastDownloadedBytes = runningDownloaded
@@ -227,6 +301,7 @@ data class ActiveDownloadTask(
 
                 if (isPausing) {
                     _state.value = DownloadState.Paused
+                    cancelProgressNotification()
                     onTaskUpdated()
                     return
                 }
@@ -235,13 +310,14 @@ data class ActiveDownloadTask(
                 if (tempFile.exists() && tempFile.length() >= totalBytes) {
                     tempFile.renameTo(destFile)
                     _state.value = DownloadState.Success
+                    cancelProgressNotification()
                     val finalPath = exportVideoToGallery(destFile, "$targetFileName.mp4")
                     updateEntityCompleted(finalPath)
                     onTaskUpdated()
 
                     // Trigger push notification with thumbnail and file size
                     val actualBytes = if (destFile.exists()) destFile.length() else totalBytes
-                    sendDownloadCompleteNotification(context, authorHandle, actualBytes, entity.thumbnailUrl ?: "")
+                    sendDownloadCompleteNotification(context, authorHandle, actualBytes, entity.thumbnailUrl ?: "", title, qualityLabel)
 
                     onDownloadSuccess(authorHandle)
                     return
@@ -256,11 +332,13 @@ data class ActiveDownloadTask(
 
                 if (isPausing) {
                     _state.value = DownloadState.Paused
+                    cancelProgressNotification()
                     onTaskUpdated()
                     return
                 }
 
                 if (!currentCoroutineContext().isActive) {
+                    cancelProgressNotification()
                     return
                 }
 
@@ -271,6 +349,7 @@ data class ActiveDownloadTask(
                 val timeSinceFirstError = System.currentTimeMillis() - firstErrorTime!!
                 if (timeSinceFirstError > 3000) {
                     _state.value = DownloadState.Failed(e.message ?: "网络下载遇到异常")
+                    cancelProgressNotification()
                     onTaskUpdated()
                     return
                 } else {
@@ -383,20 +462,22 @@ data class ActiveDownloadTask(
         context: Context,
         authorHandle: String,
         fileBytes: Long,
-        thumbnailUrl: String
+        thumbnailUrl: String,
+        title: String,
+        qualityLabel: String
     ) {
         try {
             createNotificationChannel(context)
-            
+
             val sizeInMb = fileBytes.toDouble() / (1024.0 * 1024.0)
             val formattedSize = String.format("%.1f", sizeInMb) + "MB"
-            val contentText = "@${authorHandle} 的视频已下载，$formattedSize"
+            val contentTitle = "@${authorHandle} 的视频已下载，$formattedSize，$qualityLabel"
 
             val channelId = "download_finished_channel"
             val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle("视频下载成功")
-                .setContentText(contentText)
+                .setContentTitle(contentTitle)
+                .setContentText(title)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
 
