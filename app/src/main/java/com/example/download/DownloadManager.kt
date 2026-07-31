@@ -88,8 +88,10 @@ data class ActiveDownloadTask(
     private var thumbnailLoadAttempted = false
 
     companion object {
-        // v2：鸿蒙数字角标不统计 LOW 级通知，改用 DEFAULT 级渠道
-        private const val PROGRESS_CHANNEL_ID = "download_progress_channel_v2"
+        // v3：鸿蒙数字角标与通知强绑定，且只对"提醒类"(HIGH)通知产生角标。
+        // 静音/进度类渠道不产生角标，故改用与完成通知一致的 HIGH 级渠道，
+        // 配合 setOnlyAlertOnce 仅在开始下载时提醒一次，不造成持续打扰。
+        private const val PROGRESS_CHANNEL_ID = "download_progress_channel_v3"
     }
 
     // 将位图截取为居中的正方形
@@ -102,16 +104,13 @@ data class ActiveDownloadTask(
 
     private fun createProgressNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // 注意：鸿蒙数字角标只统计 DEFAULT 及以上重要级的通知，
-            // LOW 级进度通知不计入角标，因此这里用 DEFAULT 并配置为静音。
+            // HIGH 级提醒渠道（与下载完成通知同级），鸿蒙只对这类通知产生数字角标
             val channel = NotificationChannel(
                 PROGRESS_CHANNEL_ID,
                 "下载进度",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "显示视频下载任务的实时进度"
-                setSound(null, null)
-                enableVibration(false)
                 setShowBadge(true)
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -156,7 +155,7 @@ data class ActiveDownloadTask(
                 .setOngoing(false)
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
             cachedThumbnail?.let { builder.setLargeIcon(it) }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(progressNotificationId, builder.build())
@@ -177,7 +176,7 @@ data class ActiveDownloadTask(
                 .setOngoing(false)
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
             cachedThumbnail?.let { builder.setLargeIcon(it) }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(progressNotificationId, builder.build())
