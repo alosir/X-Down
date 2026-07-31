@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X-Down — X / Twitter 视频下载器</title>
+<meta name="description" content="X-Down：粘贴推文链接，一键解析并无损保存 X / Twitter 视频到本地。多清晰度选择、断点续传、作者排行。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><path d='M28 28 L72 72 M72 28 L28 72' stroke='%231d9bf0' stroke-width='10' stroke-linecap='round'/></svg>">
+<style>
+:root{
+  --bg:#000000;
+  --surface:#16181c;
+  --surface2:#1d1f23;
+  --border:#2f3336;
+  --text:#e7e9ea;
+  --muted:#71767b;
+  --accent:#1d9bf0;
+  --accent-hover:#1a8cd8;
+  --accent-soft:rgba(29,155,240,.12);
+  --green:#00ba7c;
+  --orange:#ff8c00;
+  --radius:20px;
+  --maxw:1200px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.6;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:#fff}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+/* ---------- 背景光斑 ---------- */
+.glow{position:fixed;border-radius:50%;filter:blur(120px);opacity:.25;pointer-events:none;z-index:0}
+.glow-1{width:520px;height:520px;background:var(--accent);top:-160px;left:-160px;animation:float1 14s ease-in-out infinite}
+.glow-2{width:420px;height:420px;background:#794bc4;bottom:-140px;right:-120px;animation:float2 18s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,40px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
+
+/* ---------- 导航 ---------- */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:rgba(0,0,0,.6);
+  border-bottom:1px solid rgba(47,51,54,.6);
+}
+.nav-inner{max-width:var(--maxw);margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:.3px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
+.logo-mark svg{width:16px;height:16px}
+.nav-links{display:flex;align-items:center;gap:28px;font-size:15px}
+.nav-links a{color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;border-radius:999px;padding:12px 26px;font-size:15px;transition:transform .2s,box-shadow .2s,background .2s;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(29,155,240,.4)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--muted);transform:translateY(-2px)}
+.btn-sm{padding:8px 18px;font-size:14px}
+.btn-lg{padding:16px 38px;font-size:17px}
+
+/* ---------- 通用布局 ---------- */
+section{position:relative;z-index:1;padding:100px 24px;max-width:var(--maxw);margin:0 auto}
+.reveal{opacity:0;transform:translateY(36px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.eyebrow{display:inline-block;color:var(--accent);font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+h2{font-size:clamp(28px,4vw,44px);font-weight:800;line-height:1.15;margin-bottom:16px}
+.section-sub{color:var(--muted);font-size:17px;max-width:640px}
+
+/* ---------- Hero ---------- */
+#hero{min-height:100vh;display:flex;align-items:center;padding-top:120px}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center;width:100%}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted);margin-bottom:24px}
+.hero-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,186,124,.5)}50%{box-shadow:0 0 0 6px rgba(0,186,124,0)}}
+h1{font-size:clamp(38px,5.4vw,68px);font-weight:800;line-height:1.05;letter-spacing:-1px;margin-bottom:22px}
+h1 .grad{background:linear-gradient(90deg,#1d9bf0,#4fc3ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{color:var(--muted);font-size:18px;max-width:520px;margin-bottom:34px}
+.hero-cta{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.hero-note{margin-top:18px;font-size:13px;color:var(--muted)}
+.hero-note b{color:var(--text)}
+.hero-visual{display:flex;justify-content:center;perspective:1200px}
+
+/* ---------- 手机模型 ---------- */
+.phone{
+  width:300px;height:620px;background:#0a0a0a;border-radius:44px;
+  border:3px solid #2a2d31;padding:12px;position:relative;
+  box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset,0 0 60px rgba(29,155,240,.12);
+  transform-style:preserve-3d;transition:transform .3s ease;
+}
+.phone::before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);width:100px;height:26px;background:#0a0a0a;border-radius:20px;z-index:5}
+.screen{width:100%;height:100%;background:#000;border-radius:34px;overflow:hidden;display:flex;flex-direction:column;font-size:11px}
+.status-bar{height:44px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 22px 4px;color:#fff;font-size:10px;font-weight:600}
+.app-body{flex:1;overflow:hidden;padding:8px 12px;display:flex;flex-direction:column;gap:10px}
+.mini-logo{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0}
+.mini-logo .icon{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center}
+.mini-logo .icon svg{width:18px;height:18px}
+.mini-logo .name{font-weight:800;font-size:14px;color:var(--accent)}
+.mini-input{display:flex;align-items:center;background:var(--surface);border-radius:10px;padding:7px 8px;gap:6px}
+.mini-input .ph{flex:1;color:var(--muted);font-size:9px;background:var(--surface2);border-radius:6px;padding:5px 8px;white-space:nowrap;overflow:hidden}
+.mini-input .paste{width:22px;height:22px;border-radius:6px;background:var(--surface2);display:grid;place-items:center;color:var(--accent);font-size:9px}
+.mini-btn{background:var(--accent);color:#fff;text-align:center;font-weight:700;border-radius:9px;padding:9px;font-size:10px}
+.mini-card{background:var(--surface);border-radius:12px;padding:9px;display:flex;flex-direction:column;gap:7px}
+.mini-row{display:flex;align-items:center;gap:7px}
+.mini-avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#4fc3ff,#1d9bf0);flex:none}
+.mini-name{font-weight:700;font-size:10px}
+.mini-handle{color:var(--accent);font-size:8px}
+.mini-trash{margin-left:auto;color:#f4212e;font-size:11px}
+.mini-media{display:flex;gap:7px}
+.mini-thumb{width:60px;height:40px;border-radius:7px;background:linear-gradient(135deg,#1a2b3d,#0f1a26);flex:none;position:relative;overflow:hidden}
+.mini-thumb::after{content:"▶";position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.85);font-size:11px}
+.mini-text{flex:1;color:#cfd9de;font-size:8.5px;line-height:1.45}
+.mini-chips{display:flex;gap:5px;flex-wrap:wrap}
+.mini-chip{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:8px;color:#cfd9de}
+.mini-chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.mini-chip.done{background:rgba(0,186,124,.12);border-color:var(--green);color:var(--green);font-weight:700}
+.mini-dl{background:#536471;color:#fff;text-align:center;font-weight:700;border-radius:8px;padding:8px;font-size:9px}
+.mini-sec-title{font-weight:800;font-size:15px;color:var(--accent);padding:2px 0}
+.mini-rank{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:10px;padding:8px}
+.mini-rank .num{font-weight:800;color:var(--accent);font-size:13px;width:16px;text-align:center}
+.mini-count{margin-left:auto;color:var(--muted);font-size:8px}
+.mini-about{background:var(--surface);border-radius:10px;padding:9px;display:flex;align-items:center;gap:8px}
+.mini-about .ico{color:var(--accent);font-size:12px}
+.mini-about .t{font-weight:700;font-size:10px}
+.mini-about .s{color:var(--muted);font-size:8px}
+.mini-about .arrow{margin-left:auto;color:var(--muted)}
+.mini-badge-new{color:var(--orange);font-weight:700;font-size:8px}
+.navbar-mini{flex:none;height:44px;border-top:1px solid var(--border);display:flex;background:rgba(22,24,28,.9)}
+.navbar-mini .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:8px}
+.navbar-mini .tab.on{color:var(--accent)}
+.navbar-mini .tab .ic{font-size:13px}
+
+/* hero 手机悬浮 */
+.phone-hero{animation:phoneFloat 6s ease-in-out infinite}
+@keyframes phoneFloat{0%,100%{transform:translateY(0) rotateY(-8deg)}50%{transform:translateY(-16px) rotateY(-8deg)}}
+
+/* ---------- 特色 ---------- */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:transform .3s,border-color .3s,box-shadow .3s;position:relative;overflow:hidden}
+.feature-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .3s}
+.feature-card:hover{transform:translateY(-6px);border-color:rgba(29,155,240,.4);box-shadow:0 20px 40px rgba(0,0,0,.5)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{width:48px;height:48px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;font-size:22px;margin-bottom:18px}
+.feature-card h3{font-size:19px;font-weight:700;margin-bottom:10px}
+.feature-card p{color:var(--muted);font-size:14.5px}
+
+/* ---------- 截图预览 ---------- */
+.shots{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:56px}
+.shot{display:flex;flex-direction:column;align-items:center;gap:16px}
+.shot .phone{width:100%;max-width:250px;height:520px;transform:none;animation:none}
+.shot .phone:hover{transform:translateY(-8px)}
+.shot-label{font-weight:700;font-size:15px}
+.shot-desc{color:var(--muted);font-size:13px;text-align:center}
+
+/* ---------- 用户故事 ---------- */
+.stories-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px}
+.story-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;display:flex;flex-direction:column;gap:16px;transition:transform .3s,border-color .3s}
+.story-card:hover{transform:translateY(-5px);border-color:rgba(29,155,240,.35)}
+.story-text{font-size:15px;line-height:1.7;color:#cfd9de}
+.story-text .hl{color:var(--accent);font-weight:700}
+.story-user{display:flex;align-items:center;gap:12px;margin-top:auto}
+.story-avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:none}
+.story-name{font-weight:700;font-size:14.5px}
+.story-role{color:var(--muted);font-size:12.5px}
+.stars{color:#ffd400;font-size:14px;letter-spacing:2px}
+
+/* ---------- 下载区 ---------- */
+#download .dl-box{background:linear-gradient(135deg,rgba(29,155,240,.14),rgba(121,75,196,.10));border:1px solid rgba(29,155,240,.25);border-radius:28px;padding:70px 40px;text-align:center;position:relative;overflow:hidden}
+#download .dl-box::before{content:"";position:absolute;width:400px;height:400px;background:var(--accent);border-radius:50%;filter:blur(160px);opacity:.18;top:-200px;left:50%;transform:translateX(-50%)}
+.dl-box h2{position:relative}
+.dl-box p{position:relative;color:var(--muted);margin-bottom:34px}
+.dl-box .hero-cta{position:relative;justify-content:center}
+.version-pill{position:relative;display:inline-flex;align-items:center;gap:8px;margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:7px 16px;font-size:13px;color:var(--muted)}
+
+/* ---------- 页脚 ---------- */
+footer{border-top:1px solid var(--border);padding:40px 24px;position:relative;z-index:1}
+.footer-inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.footer-inner .left{color:var(--muted);font-size:13.5px}
+.footer-links{display:flex;gap:22px;font-size:13.5px;color:var(--muted)}
+.footer-links a:hover{color:var(--text)}
+.gh-link{display:inline-flex;align-items:center;gap:6px}
+.gh-link svg{width:16px;height:16px;fill:currentColor}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:980px){
+  .hero-grid{grid-template-columns:1fr;gap:50px;text-align:center}
+  .hero-sub{margin-left:auto;margin-right:auto}
+  .hero-cta{justify-content:center}
+  .hero-badge{margin-left:auto;margin-right:auto}
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .shots{grid-template-columns:repeat(2,1fr)}
+  .stories-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  section{padding:70px 18px}
+  .nav-links{display:none}
+  .features-grid{grid-template-columns:1fr}
+  .shots{grid-template-columns:1fr}
+  .phone{width:270px;height:560px}
+  #download .dl-box{padding:50px 22px}
+  .footer-inner{flex-direction:column;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+
+<!-- ================= 导航 ================= -->
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="#hero">
+      <span class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </span>
+      X-Down
+    </a>
+    <div class="nav-links">
+      <a href="#features">特色</a>
+      <a href="#screenshots">预览</a>
+      <a href="#stories">用户故事</a>
+      <a href="#download">下载</a>
+    </div>
+    <a class="btn btn-primary btn-sm" href="https://github.com/alosir/X-Down/releases/latest/download/app-release.apk">下载 APP</a>
+  </div>
+</nav>
+
+<!-- ================= Hero ================= -->
+<section id="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-badge reveal"><span class="dot"></span> 免费开源 · 持续更新</div>
+      <h1 class="reveal">保存你喜爱的<br><span class="grad">X 视频</span>，就这么简单</h1>
+      <p class="hero-sub reveal">粘贴推文链接，一键解析并无损下载 X / Twitter 视频到本地。多清晰度选择、断点续传、本地归档与作者排行，全都为你准备好。</p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-primary btn-lg" href="https://github.com/alosir/X-Down/releases/latest/download/app-release.apk">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          免费下载 APP
+        </a>
+        <a class="btn btn-ghost btn-lg" href="#features">了解特色</a>
+      </div>
+      <div class="hero-note reveal">适用于 <b>Android 7.0+</b> · 完美适配华为鸿蒙 · 无需登录账号</div>
+    </div>
+
+    <div class="hero-visual reveal">
+      <!-- 高保真 APP 界面：下载页 -->
+      <div class="phone phone-hero" id="tiltPhone">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="app-body">
+            <div class="mini-logo">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></div>
+              <div class="name">X-Down</div>
+            </div>
+            <div class="mini-input"><div class="ph">粘贴 Twitter/X 推文链接...</div><div class="paste">📋</div></div>
+            <div class="mini-btn">解析推文视频</div>
+            <div class="mini-card">
+              <div class="mini-row">
+                <div class="mini-avatar"></div>
+                <div><div class="mini-name">科技美学</div><div class="mini-handle">@techreview</div></div>
+                <div class="mini-trash">🗑</div>
+              </div>
+              <div class="mini-media">
+                <div class="mini-thumb"></div>
+                <div class="mini-text">这才是今年最值得入手的旗舰！实测续航直接翻倍，视频里有详细对比…</div>
+              </div>
+              <div class="mini-chips">
+                <div class="mini-chip on">1080P</div><div class="mini-chip">720P</div><div class="mini-chip">480P</div>
+              </div>
+              <div class="mini-dl">⬇ 立即下载</div>
+            </div>
+          </div>
+          <div class="navbar-mini">
+            <div class="tab on"><span class="ic">⬇</span>下载</div>
+            <div class="tab"><span class="ic">☰</span>历史</div>
+            <div class="tab"><span class="ic">★</span>排行</div>
+            <div class="tab"><span class="ic">ⓘ</span>关于</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 特色 ================= -->
+<section id="features">
+  <span class="eyebrow reveal">产品特色</span>
+  <h2 class="reveal">为高效保存视频而生</h2>
+  <p class="section-sub reveal">从解析到归档，每个环节都经过精心打磨，只为给你最顺手的体验。</p>
+  <div class="features-grid">
+    <div class="feature-card reveal"><div class="feature-icon">🔗</div><h3>一键链接解析</h3><p>粘贴推文链接即刻解析，支持多视频帖子自动拆分为独立卡片，逐视频选择清晰度下载。</p></div>
+    <div class="feature-card reveal"><div class="feature-icon">🎞️</div><h3>多清晰度选择</h3><p>从 480P 到 1080P 及以上，按需选择分辨率，无损保存原始画质，不错过任何细节。</p></div>
+    <div class="feature-card reveal"><div class="feature-icon">⏸️</div><h3>断点续传 · 队列持久</h3><p>支持暂停、继续与断点续传。APP 关闭后下载任务不丢失，重新打开即可继续。</p></div>
+    <div class="feature-card reveal"><div class="feature-icon">📋</div><h3>剪贴板智能识别</h3><p>复制 X 分享链接后回到 APP，自动检测并弹出提示，一键直达解析下载，省去手动粘贴。</p></div>
+    <div class="feature-card reveal"><div class="feature-icon">🗂️</div><h3>本地归档 · 离线播放</h3><p>视频统一保存至本地并同步系统相册，历史记录支持离线播放、在线预览与再次下载。</p></div>
+    <div class="feature-card reveal"><div class="feature-icon">🏆</div><h3>作者下载排行</h3><p>自动统计每位作者的下载视频数，常看作者一目了然，快速回访喜爱的创作者。</p></div>
+  </div>
+</section>
+
+<!-- ================= 预览截图 ================= -->
+<section id="screenshots">
+  <span class="eyebrow reveal">界面预览</span>
+  <h2 class="reveal">简洁，即是高级</h2>
+  <p class="section-sub reveal">四个核心页面，直观呈现 X-Down 的完整工作流。</p>
+  <div class="shots">
+
+    <!-- 下载 -->
+    <div class="shot reveal">
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="app-body">
+            <div class="mini-logo"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></div><div class="name">X-Down</div></div>
+            <div class="mini-input"><div class="ph">粘贴 Twitter/X 推文链接...</div><div class="paste">📋</div></div>
+            <div class="mini-btn">解析推文视频</div>
+            <div class="mini-card">
+              <div class="mini-row"><div class="mini-avatar"></div><div><div class="mini-name">科技美学</div><div class="mini-handle">@techreview</div></div><div class="mini-trash">🗑</div></div>
+              <div class="mini-media"><div class="mini-thumb"></div><div class="mini-text">实测续航翻倍的秘密，视频里详细对比…</div></div>
+              <div class="mini-chips"><div class="mini-chip on">1080P</div><div class="mini-chip">720P</div></div>
+              <div class="mini-dl">⬇ 立即下载</div>
+            </div>
+          </div>
+          <div class="navbar-mini"><div class="tab on"><span class="ic">⬇</span>下载</div><div class="tab"><span class="ic">☰</span>历史</div><div class="tab"><span class="ic">★</span>排行</div><div class="tab"><span class="ic">ⓘ</span>关于</div></div>
+        </div>
+      </div>
+      <div class="shot-label">解析下载</div>
+      <div class="shot-desc">粘贴链接，多清晰度一键下载</div>
+    </div>
+
+    <!-- 历史 -->
+    <div class="shot reveal">
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="app-body">
+            <div class="mini-sec-title">历史</div>
+            <div class="mini-card">
+              <div class="mini-row"><div class="mini-avatar"></div><div><div class="mini-name">科技美学</div><div class="mini-handle">@techreview</div></div><div class="mini-trash">🗑</div></div>
+              <div class="mini-media"><div class="mini-thumb"></div><div class="mini-text">实测续航翻倍的秘密，视频里详细对比…</div></div>
+              <div class="mini-chips"><div class="mini-chip done">✓ 1080P (已下载)</div><div class="mini-chip">720P (预览)</div></div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-row"><div class="mini-avatar" style="background:linear-gradient(135deg,#f4a24f,#e1306c)"></div><div><div class="mini-name">旅行日记</div><div class="mini-handle">@traveldiary</div></div><div class="mini-trash">🗑</div></div>
+              <div class="mini-media"><div class="mini-thumb" style="background:linear-gradient(135deg,#2b3d1a,#1a260f)"></div><div class="mini-text">云海的日出，此生必看的一次…</div></div>
+              <div class="mini-chips"><div class="mini-chip done">✓ 720P (已下载)</div></div>
+            </div>
+          </div>
+          <div class="navbar-mini"><div class="tab"><span class="ic">⬇</span>下载</div><div class="tab on"><span class="ic">☰</span>历史</div><div class="tab"><span class="ic">★</span>排行</div><div class="tab"><span class="ic">ⓘ</span>关于</div></div>
+        </div>
+      </div>
+      <div class="shot-label">本地历史</div>
+      <div class="shot-desc">离线播放 · 在线预览 · 再次下载</div>
+    </div>
+
+    <!-- 排行 -->
+    <div class="shot reveal">
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="app-body">
+            <div class="mini-sec-title">作者排行</div>
+            <div class="mini-rank"><div class="num">1</div><div class="mini-avatar"></div><div><div class="mini-name">科技美学</div><div class="mini-handle">@techreview</div></div><div class="mini-count">12 个视频</div></div>
+            <div class="mini-rank"><div class="num">2</div><div class="mini-avatar" style="background:linear-gradient(135deg,#f4a24f,#e1306c)"></div><div><div class="mini-name">旅行日记</div><div class="mini-handle">@traveldiary</div></div><div class="mini-count">8 个视频</div></div>
+            <div class="mini-rank"><div class="num">3</div><div class="mini-avatar" style="background:linear-gradient(135deg,#8e6cff,#4fc3ff)"></div><div><div class="mini-name">美食实验室</div><div class="mini-handle">@foodlab</div></div><div class="mini-count">5 个视频</div></div>
+          </div>
+          <div class="navbar-mini"><div class="tab"><span class="ic">⬇</span>下载</div><div class="tab"><span class="ic">☰</span>历史</div><div class="tab on"><span class="ic">★</span>排行</div><div class="tab"><span class="ic">ⓘ</span>关于</div></div>
+        </div>
+      </div>
+      <div class="shot-label">作者排行</div>
+      <div class="shot-desc">常下载的创作者一目了然</div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="shot reveal">
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="app-body">
+            <div class="mini-sec-title">关于</div>
+            <div class="mini-about"><div class="ico">💻</div><div><div class="t">关于项目</div><div class="s">github.com/alosir/X-Down</div></div><div class="arrow">›</div></div>
+            <div class="mini-about"><div class="ico">ⓘ</div><div><div class="t">当前版本</div><div class="s" id="shotVersion">v1.5.4</div></div><div class="mini-badge-new">有新版本</div><div class="arrow">›</div></div>
+            <div class="mini-about"><div class="ico">🔔</div><div><div class="t">通知权限</div><div class="s">进入系统通知设置</div></div><div class="arrow">›</div></div>
+          </div>
+          <div class="navbar-mini"><div class="tab"><span class="ic">⬇</span>下载</div><div class="tab"><span class="ic">☰</span>历史</div><div class="tab"><span class="ic">★</span>排行</div><div class="tab on"><span class="ic">ⓘ</span>关于</div></div>
+        </div>
+      </div>
+      <div class="shot-label">关于 · 检查更新</div>
+      <div class="shot-desc">自动检查更新，新版本及时提醒</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 用户故事 ================= -->
+<section id="stories">
+  <span class="eyebrow reveal">用户故事</span>
+  <h2 class="reveal">他们都在用 X-Down</h2>
+  <p class="section-sub reveal">来自真实用户的声音。</p>
+  <div class="stories-grid">
+    <div class="story-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="story-text">"做短视频素材收集，每天要存几十条 X 上的视频。X-Down 的<span class="hl">剪贴板自动识别</span>太省事了，复制链接切回 APP 就能下，效率直接翻倍。"</p>
+      <div class="story-user">
+        <div class="story-avatar" style="background:linear-gradient(135deg,#1d9bf0,#0d6ebd)">陈</div>
+        <div><div class="story-name">陈先生</div><div class="story-role">自媒体创作者</div></div>
+      </div>
+    </div>
+    <div class="story-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="story-text">"通勤路上总没信号，现在提前把喜欢的视频<span class="hl">离线下载</span>好，地铁里也能顺畅看。断点续传很稳，大文件也不怕中途失败。"</p>
+      <div class="story-user">
+        <div class="story-avatar" style="background:linear-gradient(135deg,#00ba7c,#00915f)">林</div>
+        <div><div class="story-name">林小姐</div><div class="story-role">上班族</div></div>
+      </div>
+    </div>
+    <div class="story-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="story-text">"最打动我的是<span class="hl">开源且干净</span>，没有广告、不用登录、不收集数据。多视频帖子还能拆开单独下，细节做得很用心。"</p>
+      <div class="story-user">
+        <div class="story-avatar" style="background:linear-gradient(135deg,#794bc4,#5a2ea6)">王</div>
+        <div><div class="story-name">王先生</div><div class="story-role">开发者</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 下载 ================= -->
+<section id="download">
+  <div class="dl-box reveal">
+    <h2>现在就开始保存<br>你喜欢的 X 视频</h2>
+    <p>免费 · 开源 · 无广告 · 无需登录</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary btn-lg" href="https://github.com/alosir/X-Down/releases/latest/download/app-release.apk">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载 Android APP
+      </a>
+      <a class="btn btn-ghost btn-lg" href="https://github.com/alosir/X-Down" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.72-1.54-2.83-.32-5.81-1.42-5.81-6.31 0-1.39.5-2.53 1.31-3.42-.13-.32-.57-1.61.12-3.36 0 0 1.07-.34 3.5 1.31a12.2 12.2 0 0 1 3.19-.43c1.08.01 2.17.15 3.19.43 2.43-1.65 3.5-1.31 3.5-1.31.69 1.75.25 3.04.12 3.36.81.89 1.31 2.03 1.31 3.42 0 4.9-2.99 5.98-5.83 6.3.46.39.86 1.17.86 2.36 0 1.7-.02 3.07-.02 3.49 0 .3.21.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub 开源
+      </a>
+    </div>
+    <div class="version-pill"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--green)"></span><span id="versionText">最新版本 · 持续更新</span></div>
+  </div>
+</section>
+
+<!-- ================= 页脚 ================= -->
+<footer>
+  <div class="footer-inner">
+    <div class="left">© 2026 X-Down · 仅用于学习交流，请遵守相关平台使用条款</div>
+    <div class="footer-links">
+      <a class="gh-link" href="https://github.com/alosir/X-Down" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.72-1.54-2.83-.32-5.81-1.42-5.81-6.31 0-1.39.5-2.53 1.31-3.42-.13-.32-.57-1.61.12-3.36 0 0 1.07-.34 3.5 1.31a12.2 12.2 0 0 1 3.19-.43c1.08.01 2.17.15 3.19.43 2.43-1.65 3.5-1.31 3.5-1.31.69 1.75.25 3.04.12 3.36.81.89 1.31 2.03 1.31 3.42 0 4.9-2.99 5.98-5.83 6.3.46.39.86 1.17.86 2.36 0 1.7-.02 3.07-.02 3.49 0 .3.21.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub
+      </a>
+      <a href="https://github.com/alosir/X-Down/releases" target="_blank" rel="noopener">全部版本</a>
+      <a href="privacy_policy.html">隐私政策</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---------- 滚动显现动画 ---------- */
+(function(){
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach((e,i)=>{
+      if(e.isIntersecting){
+        setTimeout(()=>e.target.classList.add('visible'), (e.target.dataset.idx||0)*90);
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:0.12});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{
+    // 为同组元素设置递增延迟，形成错落入场
+    const parent = el.parentElement;
+    const siblings = Array.from(parent.children).filter(c=>c.classList&&c.classList.contains('reveal'));
+    el.dataset.idx = siblings.indexOf(el);
+    io.observe(el);
+  });
+})();
+
+/* ---------- Hero 手机 3D 倾斜（PC） ---------- */
+(function(){
+  const phone = document.getElementById('tiltPhone');
+  if(!phone || !window.matchMedia('(pointer:fine)').matches) return;
+  const wrap = phone.parentElement;
+  wrap.addEventListener('mousemove',(e)=>{
+    const r = wrap.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width - .5;
+    const y = (e.clientY - r.top)/r.height - .5;
+    phone.style.animation = 'none';
+    phone.style.transform = `rotateY(${-8 + x*14}deg) rotateX(${ -y*10}deg)`;
+  });
+  wrap.addEventListener('mouseleave',()=>{
+    phone.style.transform = '';
+    phone.style.animation = '';
+  });
+})();
+
+/* ---------- 平滑锚点（兼容旧浏览器） ---------- */
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',(e)=>{
+    const id = a.getAttribute('href');
+    if(id.length>1){
+      const t = document.querySelector(id);
+      if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth'}); }
+    }
+  });
+});
+
+/* ---------- 拉取最新版本号（失败则静默） ---------- */
+(function(){
+  const el = document.getElementById('versionText');
+  const shotVer = document.getElementById('shotVersion');
+  fetch('https://api.github.com/repos/alosir/X-Down/releases/latest')
+    .then(r=>r.ok?r.json():Promise.reject())
+    .then(d=>{
+      if(d && d.tag_name){
+        el.textContent = '最新版本 ' + d.tag_name + ' · 持续更新';
+        if(shotVer) shotVer.textContent = d.tag_name.replace(/^v/,'v');
+      }
+    })
+    .catch(()=>{ /* 网络不可达时保持默认文案 */ });
+})();
+</script>
+</body>
+</html>
