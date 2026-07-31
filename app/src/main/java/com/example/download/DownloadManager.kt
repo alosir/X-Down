@@ -78,7 +78,7 @@ data class ActiveDownloadTask(
         isPausing = true
         job?.cancel()
         _state.value = DownloadState.Paused
-        cancelProgressNotification()
+        showStateNotification("已暂停")
         onTaskUpdated()
     }
 
@@ -152,7 +152,30 @@ data class ActiveDownloadTask(
                 .setContentText("@${authorHandle}：$title")
                 .setProgress(100, percent, percent <= 0)
                 .setNumber(badgeCountProvider())
-                .setOngoing(true)
+                // 鸿蒙桌面角标不统计 ongoing 常驻通知，改为非常驻使其计入角标
+                .setOngoing(false)
+                .setAutoCancel(false)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            cachedThumbnail?.let { builder.setLargeIcon(it) }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(progressNotificationId, builder.build())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // 暂停/失败等非下载中状态的通知（非 ongoing，计入鸿蒙角标；缩略图复用已加载的缓存）
+    private fun showStateNotification(stateText: String) {
+        try {
+            createProgressNotificationChannel()
+            val builder = NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("$stateText：${qualityLabel.uppercase()}视频")
+                .setContentText("@${authorHandle}：$title")
+                .setNumber(badgeCountProvider())
+                .setOngoing(false)
+                .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             cachedThumbnail?.let { builder.setLargeIcon(it) }
@@ -326,7 +349,7 @@ data class ActiveDownloadTask(
 
                 if (isPausing) {
                     _state.value = DownloadState.Paused
-                    cancelProgressNotification()
+                    showStateNotification("已暂停")
                     onTaskUpdated()
                     return
                 }
@@ -357,7 +380,7 @@ data class ActiveDownloadTask(
 
                 if (isPausing) {
                     _state.value = DownloadState.Paused
-                    cancelProgressNotification()
+                    showStateNotification("已暂停")
                     onTaskUpdated()
                     return
                 }
@@ -374,7 +397,7 @@ data class ActiveDownloadTask(
                 val timeSinceFirstError = System.currentTimeMillis() - firstErrorTime!!
                 if (timeSinceFirstError > 3000) {
                     _state.value = DownloadState.Failed(e.message ?: "网络下载遇到异常")
-                    cancelProgressNotification()
+                    showStateNotification("下载失败")
                     onTaskUpdated()
                     return
                 } else {
