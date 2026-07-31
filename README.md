@@ -61,6 +61,10 @@ app/src/main/java/com/example/
 
 详见 [`privacy_policy.html`](privacy_policy.html)。
 
+## 开发协作
+
+版本号规则、迭代同步清单与发布流程见 [`AGENTS.md`](AGENTS.md)。
+
 ## 开源协议
 
 本项目仅用于学习与交流，请遵守相关平台的使用条款。
