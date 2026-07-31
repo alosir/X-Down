@@ -166,6 +166,15 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val versionLogs = remember {
         listOf(
             VersionLog(
+                version = "1.5.0",
+                date = "2026-07-31",
+                changes = listOf(
+                    "多视频帖子拆分为独立卡片：一个视频一张卡片，缩略图与之一一对应",
+                    "作者下载统计改为按视频个数计数",
+                    "下载队列支持断线保留：APP 关闭后任务不丢失，重新打开可继续下载"
+                )
+            ),
+            VersionLog(
                 version = "1.4.3",
                 date = "2026-07-31",
                 changes = listOf(

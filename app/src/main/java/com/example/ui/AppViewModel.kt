@@ -26,7 +26,8 @@ data class ParseUiState(
     val isParsing: Boolean = false,
     val parseError: String? = null,
     val parsedEntity: TweetDownloadEntity? = null,
-    val selectedResolutions: Map<Int, VideoQuality> = emptyMap() // maps videoIndex to selected VideoQuality
+    val selectedResolutions: Map<Int, VideoQuality> = emptyMap(), // maps videoIndex to selected VideoQuality
+    val dismissedIndices: Set<Int> = emptySet() // 已被手动删除卡片的 videoIndex
 )
 
 data class DownloadWarningState(
@@ -68,7 +69,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     authorName = firstItem.authorName,
                     authorHandle = firstItem.authorHandle,
                     authorAvatarUrl = firstItem.authorAvatarUrl,
-                    downloadCount = items.size
+                    // 按已下载且文件存在的视频个数统计（一个视频计一次）
+                    downloadCount = items.sumOf { entity ->
+                        entity.getLocalFilePaths().values.count { File(it).exists() }
+                    }
                 )
             }
             .sortedByDescending { it.downloadCount }
@@ -262,9 +266,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteHistoryItem(entity: TweetDownloadEntity) {
+    // 删除历史记录中某个视频的记录（多视频帖子按视频粒度删除）
+    fun deleteHistoryVideo(entity: TweetDownloadEntity, videoIndex: Int) {
         viewModelScope.launch {
-            repository.deleteDownloadById(entity.tweetId)
+            val current = repository.getDownloadById(entity.tweetId) ?: return@launch
+            val videos = current.getVideos()
+            val removePositions = videos.indices.filter { videos[it].videoIndex == videoIndex }.toSet()
+            if (removePositions.isEmpty()) return@launch
+
+            val keepPositions = videos.indices.filter { it !in removePositions }
+            if (keepPositions.isEmpty()) {
+                // 该帖子已无任何视频，删除整条记录
+                repository.deleteDownloadById(entity.tweetId)
+            } else {
+                // 重建 videosJson 并重新映射 localFilePaths 的下标
+                val newVideos = keepPositions.map { videos[it] }
+                val indexMap = keepPositions.mapIndexed { newPos, oldPos -> oldPos to newPos }.toMap()
+                val newPaths = current.getLocalFilePaths()
+                    .filterKeys { it in indexMap }
+                    .mapKeys { indexMap.getValue(it.key) }
+                repository.updateDownload(
+                    current.copy(
+                        videosJson = TweetDownloadEntity.createVideosJson(newVideos),
+                        localFilePathsJson = TweetDownloadEntity.createLocalFilePathsJson(newPaths)
+                    )
+                )
+            }
             refreshFileStatus()
         }
     }
@@ -449,6 +476,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // 手动关闭首页解析结果卡片
     fun clearParseResult() {
         _parseState.value = ParseUiState()
+    }
+
+    // 删除多视频解析结果中的单个视频卡片；全部删除后清空解析结果
+    fun dismissParsedVideo(videoIndex: Int) {
+        val current = _parseState.value
+        val entity = current.parsedEntity ?: return
+        val newDismissed = current.dismissedIndices + videoIndex
+        val totalGroups = entity.getVideos().groupBy { it.videoIndex }.size
+        if (newDismissed.size >= totalGroups) {
+            _parseState.value = ParseUiState()
+        } else {
+            _parseState.value = current.copy(dismissedIndices = newDismissed)
+        }
     }
 
     companion object {

@@ -482,113 +482,89 @@ fun DownloaderTab(viewModel: AppViewModel) {
             }
         }
 
-        // Parse Result Display Card
+        // Parse Result Display Cards：一个视频一张卡片
         if (parseState.parsedEntity != null) {
             val entity = parseState.parsedEntity!!
             val videos = entity.getVideos()
+            val grouped = videos.groupBy { it.videoIndex }
+            val visibleGroups = grouped.filterKeys { it !in parseState.dismissedIndices }
 
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Author Metadata row（与历史卡片一致：头像 + 作者信息 + 红色删除按钮）
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AsyncImage(
-                                model = entity.authorAvatarUrl,
-                                contentDescription = "Author Avatar",
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = entity.authorName,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = "@${entity.authorHandle}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(onClick = { viewModel.clearParseResult() }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "删除解析结果",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // 缩略图左、帖文文案右（与历史卡片一致）
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            if (entity.thumbnailUrl.isNotEmpty()) {
+            visibleGroups.forEach { (videoIndex, qualityList) ->
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Author Metadata row（与历史卡片一致：头像 + 作者信息 + 红色删除按钮）
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 AsyncImage(
-                                    model = entity.thumbnailUrl,
-                                    contentDescription = "Video Thumbnail",
-                                    contentScale = ContentScale.Crop,
+                                    model = entity.authorAvatarUrl,
+                                    contentDescription = "Author Avatar",
                                     modifier = Modifier
-                                        .width(100.dp)
-                                        .height(68.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.Black)
+                                        .size(36.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = entity.authorName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "@${entity.authorHandle}",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.dismissParsedVideo(videoIndex) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "删除此视频卡片",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
-                            Text(
-                                text = entity.title,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                        // Dynamic grouping and pre-selection
-                        // Supported multiples: grouping by videoIndex
-                        val grouped = videos.groupBy { it.videoIndex }
-                        grouped.forEach { (videoIndex, qualityList) ->
+                            // 缩略图左、帖文文案右；缩略图为当前视频自己的缩略图
+                            val cardThumbnail = qualityList.firstOrNull()?.thumbnailUrl?.takeIf { it.isNotEmpty() }
+                                ?: entity.thumbnailUrl
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 6.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.Top
                             ) {
-                                if (entity.thumbnailUrl.isNotEmpty()) {
+                                if (cardThumbnail.isNotEmpty()) {
                                     AsyncImage(
-                                        model = entity.thumbnailUrl,
-                                        contentDescription = "Video Paragraph Thumbnail",
+                                        model = cardThumbnail,
+                                        contentDescription = "Video Thumbnail",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
-                                            .width(72.dp)
-                                            .height(48.dp)
+                                            .width(100.dp)
+                                            .height(68.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .background(Color.Black)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
                                 }
                                 Text(
-                                    text = "视频段落 #${videoIndex + 1} 选择清晰度:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
+                                    text = entity.title,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
 
-                            // Resolution Buttons Selection Row
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Resolution Buttons Selection Row（仅当前视频）
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -626,37 +602,38 @@ fun DownloaderTab(viewModel: AppViewModel) {
                                     }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        // Active Trigger Download Button
-                        Button(
-                            onClick = {
-                                viewModel.checkAndTriggerDownloads(
-                                    entity = entity,
-                                    selections = parseState.selectedResolutions,
-                                    onSuccessDirectDownload = {
-                                        Toast.makeText(context, "已加入下载队列并开始下载", Toast.LENGTH_SHORT).show()
+                            // Download Button（仅下载当前视频）
+                            Button(
+                                onClick = {
+                                    val selected = parseState.selectedResolutions[videoIndex] ?: qualityList.first()
+                                    viewModel.checkAndTriggerDownloads(
+                                        entity = entity,
+                                        selections = mapOf(videoIndex to selected),
+                                        onSuccessDirectDownload = {
+                                            Toast.makeText(context, "已加入下载队列并开始下载", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                    coroutineScope.launch {
+                                        delay(150)
+                                        val count = listState.layoutInfo.totalItemsCount
+                                        if (count > 0) {
+                                            listState.animateScrollToItem(count - 1)
+                                        }
                                     }
-                                )
-                                coroutineScope.launch {
-                                    delay(150)
-                                    val count = listState.layoutInfo.totalItemsCount
-                                    if (count > 0) {
-                                        listState.animateScrollToItem(count - 1)
-                                    }
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("立即下载", fontWeight = FontWeight.Bold)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("立即下载", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -873,12 +850,21 @@ fun HistoryTab(
                 }
             }
         } else {
+            // 一个视频一张卡片：将每个帖子的多个视频拆分为独立卡片
+            val videoCards = historyList.flatMap { entity ->
+                entity.getVideos()
+                    .groupBy { it.videoIndex }
+                    .keys
+                    .sorted()
+                    .map { idx -> entity to idx }
+            }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(historyList) { item ->
-                    HistoryItemCard(item, viewModel, onPlayVideo, onOpenUrl)
+                items(videoCards.size) { i ->
+                    val (entity, videoIndex) = videoCards[i]
+                    HistoryItemCard(entity, videoIndex, viewModel, onPlayVideo, onOpenUrl)
                 }
             }
         }
@@ -888,12 +874,18 @@ fun HistoryTab(
 @Composable
 fun HistoryItemCard(
     item: TweetDownloadEntity,
+    videoIndex: Int,
     viewModel: AppViewModel,
     onPlayVideo: (String, String, (() -> Unit)?) -> Unit,
     onOpenUrl: (String) -> Unit
 ) {
     val paths = item.getLocalFilePaths()
     val context = LocalContext.current
+    val videos = item.getVideos()
+    val qualityList = videos.filter { it.videoIndex == videoIndex }
+    // 当前视频自己的缩略图（旧数据无该字段时回退到帖子缩略图）
+    val cardThumbnail = qualityList.firstOrNull()?.thumbnailUrl?.takeIf { it.isNotEmpty() }
+        ?: item.thumbnailUrl
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -922,9 +914,9 @@ fun HistoryItemCard(
                     Text(text = "@${item.authorHandle}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                 }
 
-                // Delete Button
+                // Delete Button（删除此视频的记录）
                 IconButton(onClick = {
-                    viewModel.deleteHistoryItem(item)
+                    viewModel.deleteHistoryVideo(item, videoIndex)
                     Toast.makeText(context, "已从本地及历史中移除", Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(
@@ -945,7 +937,7 @@ fun HistoryItemCard(
                     .clickable { onOpenUrl(item.url) },
                 verticalAlignment = Alignment.Top
             ) {
-                if (item.thumbnailUrl.isNotEmpty()) {
+                if (cardThumbnail.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .width(100.dp)
@@ -955,7 +947,7 @@ fun HistoryItemCard(
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
-                            model = item.thumbnailUrl,
+                            model = cardThumbnail,
                             contentDescription = "Video Thumbnail",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -987,84 +979,70 @@ fun HistoryItemCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Play / Online Offline Previews
-            val videos = item.getVideos()
-            val grouped = videos.groupBy { it.videoIndex }
+            // Play / Online Offline Previews（仅当前视频的清晰度）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                qualityList.forEach { video ->
+                    val videoIndexInAll = videos.indexOf(video)
+                    val localPath = paths[videoIndexInAll]
+                    val isDownloaded = localPath != null && File(localPath).exists()
+                    val greenColor = Color(0xFF2E7D32)
+                    val greenBg = Color(0xFFE8F5E9)
+                    val greenText = Color(0xFF1B5E20)
 
-            grouped.forEach { (idx, qualityList) ->
-                Text(
-                    text = "视频部分 #${idx + 1}:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-
-                // List Resolutions buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    qualityList.forEach { video ->
-                        val videoIndexInAll = videos.indexOf(video)
-                        val localPath = paths[videoIndexInAll]
-                        val isDownloaded = localPath != null && File(localPath).exists()
-                        val greenColor = Color(0xFF2E7D32)
-                        val greenBg = Color(0xFFE8F5E9)
-                        val greenText = Color(0xFF1B5E20)
-
-                        Box(
-                            modifier = Modifier
-                                .widthIn(min = 100.dp)
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDownloaded) greenBg else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f))
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isDownloaded) greenColor else Color.Transparent,
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .clickable {
-                                    if (isDownloaded && localPath != null) {
-                                        // Offline file Playback (no download button on dialog browser)
-                                        onPlayVideo(localPath, "本地离线: ${item.title}", null)
-                                    } else {
-                                        // Streaming played online (equipped with click download key)
-                                        if (video.url.isNotEmpty()) {
-                                            onPlayVideo(video.url, "在线缓存: ${item.title}") {
-                                                viewModel.startDownload(item, video)
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "解析地址缺失，无法播放", Toast.LENGTH_SHORT).show()
+                    Box(
+                        modifier = Modifier
+                            .widthIn(min = 100.dp)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDownloaded) greenBg else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f))
+                            .border(
+                                width = 1.dp,
+                                color = if (isDownloaded) greenColor else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                if (isDownloaded && localPath != null) {
+                                    // Offline file Playback (no download button on dialog browser)
+                                    onPlayVideo(localPath, "本地离线: ${item.title}", null)
+                                } else {
+                                    // Streaming played online (equipped with click download key)
+                                    if (video.url.isNotEmpty()) {
+                                        onPlayVideo(video.url, "在线缓存: ${item.title}") {
+                                            viewModel.startDownload(item, video)
                                         }
+                                    } else {
+                                        Toast.makeText(context, "解析地址缺失，无法播放", Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isDownloaded) Icons.Default.CheckCircle else Icons.Default.Wifi,
-                                    contentDescription = "Play",
-                                    tint = if (isDownloaded) greenText else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "${video.quality} ${if (isDownloaded) "(已下载)" else "(预览)"}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = if (isDownloaded) greenText else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isDownloaded) Icons.Default.CheckCircle else Icons.Default.Wifi,
+                                contentDescription = "Play",
+                                tint = if (isDownloaded) greenText else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${video.quality} ${if (isDownloaded) "(已下载)" else "(预览)"}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (isDownloaded) greenText else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

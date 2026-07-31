@@ -36,7 +36,8 @@ data class TweetDownloadEntity(
                             quality = obj.optString("quality", "unknown"),
                             width = obj.optInt("width", 0),
                             height = obj.optInt("height", 0),
-                            bitrate = obj.optInt("bitrate", 0)
+                            bitrate = obj.optInt("bitrate", 0),
+                            thumbnailUrl = obj.optString("thumbnailUrl", "")
                         )
                     )
                 }
@@ -76,6 +77,7 @@ data class TweetDownloadEntity(
                     put("width", video.width)
                     put("height", video.height)
                     put("bitrate", video.bitrate)
+                    put("thumbnailUrl", video.thumbnailUrl)
                 }
                 array.put(obj)
             }
@@ -98,7 +100,8 @@ data class VideoQuality(
     val quality: String, // e.g. "1080p", "720p", "480p"
     val width: Int,
     val height: Int,
-    val bitrate: Int = 0
+    val bitrate: Int = 0,
+    val thumbnailUrl: String = "" // 每个视频各自的缩略图
 )
 
 data class AuthorRanking(

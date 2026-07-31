@@ -60,6 +60,11 @@ data class ActiveDownloadTask(
     private var isPausing = false
     private var targetFileName: String = ""
 
+    // 从本地持久化恢复的任务：初始为暂停状态，等待用户手动继续
+    fun restoreAsPaused() {
+        _state.value = DownloadState.Paused
+    }
+
     fun start() {
         if (state.value is DownloadState.Downloading) return
         isPausing = false
@@ -566,12 +571,16 @@ class DownloadManager private constructor(
     // Base output folder inside movies directory
     private val outputDirectory: File
 
+    // 下载队列本地持久化（APP 关闭后队列不丢失，仅手动删除或下载完成才移除）
+    private val queuePrefs = context.getSharedPreferences("download_queue_prefs", Context.MODE_PRIVATE)
+
     init {
         val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: File(context.filesDir, "Movies")
         outputDirectory = File(moviesDir, "X-Down")
         if (!outputDirectory.exists()) {
             outputDirectory.mkdirs()
         }
+        restoreTasks()
     }
 
     private fun handleTaskUpdated() {
@@ -580,6 +589,72 @@ class DownloadManager private constructor(
         badgeCount = active.count {
             val s = it.state.value
             s is DownloadState.Downloading || s is DownloadState.Paused || s is DownloadState.Failed
+        }
+        saveTasks()
+    }
+
+    // 将当前未完成的任务写入本地
+    private fun saveTasks() {
+        try {
+            val active = _tasks.values.filter { it.state.value !is DownloadState.Success }
+            val array = org.json.JSONArray()
+            active.forEach { t ->
+                array.put(org.json.JSONObject().apply {
+                    put("id", t.id)
+                    put("tweetId", t.tweetId)
+                    put("videoIndex", t.videoIndex)
+                    put("videoUrl", t.videoUrl)
+                    put("title", t.title)
+                    put("authorName", t.authorName)
+                    put("authorHandle", t.authorHandle)
+                    put("qualityLabel", t.qualityLabel)
+                })
+            }
+            queuePrefs.edit().putString("tasks", array.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // APP 启动时恢复上次未完成的下载任务（恢复为暂停状态，用户手动继续）
+    private fun restoreTasks() {
+        mainScope.launch {
+            try {
+                val json = queuePrefs.getString("tasks", "[]") ?: "[]"
+                val array = org.json.JSONArray(json)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val taskId = obj.optString("id")
+                    val tweetId = obj.optString("tweetId")
+                    if (taskId.isEmpty() || tweetId.isEmpty() || _tasks.containsKey(taskId)) continue
+                    val entity = repository.getDownloadById(tweetId) ?: continue
+                    val task = ActiveDownloadTask(
+                        id = taskId,
+                        tweetId = tweetId,
+                        videoIndex = obj.optInt("videoIndex"),
+                        videoUrl = obj.optString("videoUrl"),
+                        title = obj.optString("title"),
+                        authorName = obj.optString("authorName"),
+                        authorHandle = obj.optString("authorHandle"),
+                        qualityLabel = obj.optString("qualityLabel"),
+                        entity = entity,
+                        scope = mainScope,
+                        client = client,
+                        repository = repository,
+                        outputDir = outputDirectory,
+                        context = context,
+                        onTaskUpdated = { handleTaskUpdated() },
+                        onDownloadSuccess = { authorHandle -> emitCompletedDownload(authorHandle) },
+                        badgeCountProvider = { badgeCount },
+                        forceRedownload = false
+                    )
+                    task.restoreAsPaused()
+                    _tasks[taskId] = task
+                }
+                handleTaskUpdated()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

@@ -68,6 +68,7 @@ class TweetRepository(
         
         // Formats can live under media.videos[i].formats
         tweet.media?.videos?.forEach { fxVideo ->
+            val videoThumbnail = fxVideo.thumbnail_url ?: ""
             val formats = fxVideo.formats
             if (!formats.isNullOrEmpty()) {
                 formats.forEach { fmt ->
@@ -81,7 +82,8 @@ class TweetRepository(
                             quality = "${h}p",
                             width = w,
                             height = h,
-                            bitrate = fmt.bitrate ?: 0
+                            bitrate = fmt.bitrate ?: 0,
+                            thumbnailUrl = videoThumbnail
                         ))
                     }
                 }
@@ -93,16 +95,18 @@ class TweetRepository(
                     url = urlStr,
                     quality = "${h}p",
                     width = 1280,
-                    height = h
+                    height = h,
+                    thumbnailUrl = videoThumbnail
                 ))
             }
             videoIdx++
         }
-        
+
         // Also look into media.all formats
         if (videos.isEmpty() && !tweet.media?.all.isNullOrEmpty()) {
             tweet.media?.all?.forEach { item ->
                 if (item.type == "video") {
+                    val videoThumbnail = item.thumbnail_url ?: ""
                     val formats = item.formats
                     if (!formats.isNullOrEmpty()) {
                         formats.forEach { fmt ->
@@ -116,7 +120,8 @@ class TweetRepository(
                                     quality = "${h}p",
                                     width = w,
                                     height = h,
-                                    bitrate = fmt.bitrate ?: 0
+                                    bitrate = fmt.bitrate ?: 0,
+                                    thumbnailUrl = videoThumbnail
                                 ))
                             }
                         }
@@ -128,7 +133,8 @@ class TweetRepository(
                             url = urlStr,
                             quality = "${h}p",
                             width = 1280,
-                            height = h
+                            height = h,
+                            thumbnailUrl = videoThumbnail
                         ))
                     }
                     videoIdx++
