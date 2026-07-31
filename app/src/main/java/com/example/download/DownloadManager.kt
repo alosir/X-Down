@@ -50,6 +50,7 @@ data class ActiveDownloadTask(
     private val context: Context,
     private val onTaskUpdated: () -> Unit,
     private val onDownloadSuccess: (String) -> Unit,
+    private val badgeCountProvider: () -> Int = { 0 },
     val forceRedownload: Boolean = false
 ) {
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -81,6 +82,14 @@ data class ActiveDownloadTask(
     private var cachedThumbnail: android.graphics.Bitmap? = null
     private var thumbnailLoadAttempted = false
 
+    // 将位图截取为居中的正方形
+    private fun cropToSquare(bitmap: android.graphics.Bitmap): android.graphics.Bitmap {
+        val size = minOf(bitmap.width, bitmap.height)
+        val x = (bitmap.width - size) / 2
+        val y = (bitmap.height - size) / 2
+        return android.graphics.Bitmap.createBitmap(bitmap, x, y, size, size)
+    }
+
     private fun createProgressNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -109,7 +118,7 @@ data class ActiveDownloadTask(
                     .build()
                 val result = loader.execute(request)
                 if (result is SuccessResult) {
-                    (result.drawable as? BitmapDrawable)?.bitmap
+                    (result.drawable as? BitmapDrawable)?.bitmap?.let { cropToSquare(it) }
                 } else null
             } catch (e: Exception) {
                 null
@@ -124,9 +133,10 @@ data class ActiveDownloadTask(
             val percent = (progress * 100).toInt()
             val builder = NotificationCompat.Builder(context, "download_progress_channel")
                 .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("正在下载 @${authorHandle} 的视频（$qualityLabel）")
-                .setContentText(title)
+                .setContentTitle("${qualityLabel.uppercase()}视频正在下载中")
+                .setContentText("@${authorHandle}：$title")
                 .setProgress(100, percent, percent <= 0)
+                .setNumber(badgeCountProvider())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -471,13 +481,13 @@ data class ActiveDownloadTask(
 
             val sizeInMb = fileBytes.toDouble() / (1024.0 * 1024.0)
             val formattedSize = String.format("%.1f", sizeInMb) + "MB"
-            val contentTitle = "@${authorHandle} 的视频已下载，$formattedSize，$qualityLabel"
+            val contentTitle = "视频已下载完成，$formattedSize，${qualityLabel.uppercase()}"
 
             val channelId = "download_finished_channel"
             val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(contentTitle)
-                .setContentText(title)
+                .setContentText("@${authorHandle}：$title")
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
 
@@ -503,7 +513,7 @@ data class ActiveDownloadTask(
                             .build()
                         val result = loader.execute(request)
                         if (result is SuccessResult) {
-                            (result.drawable as? BitmapDrawable)?.bitmap
+                            (result.drawable as? BitmapDrawable)?.bitmap?.let { cropToSquare(it) }
                         } else {
                             null
                         }
@@ -565,8 +575,17 @@ class DownloadManager private constructor(
     }
 
     private fun handleTaskUpdated() {
-        _activeTasksList.value = _tasks.values.filter { it.state.value !is DownloadState.Success }
+        val active = _tasks.values.filter { it.state.value !is DownloadState.Success }
+        _activeTasksList.value = active
+        badgeCount = active.count {
+            val s = it.state.value
+            s is DownloadState.Downloading || s is DownloadState.Paused || s is DownloadState.Failed
+        }
     }
+
+    // 当前下载队列任务数（供通知 setNumber 角标使用）
+    @Volatile
+    private var badgeCount = 0
 
     fun downloadVideo(entity: TweetDownloadEntity, video: VideoQuality, forceRedownload: Boolean = false) {
         val taskId = "${entity.tweetId}_${video.videoIndex}_${video.quality}"
@@ -619,6 +638,7 @@ class DownloadManager private constructor(
             context = context,
             onTaskUpdated = { handleTaskUpdated() },
             onDownloadSuccess = { authorHandle -> emitCompletedDownload(authorHandle) },
+            badgeCountProvider = { badgeCount },
             forceRedownload = forceRedownload
         )
 

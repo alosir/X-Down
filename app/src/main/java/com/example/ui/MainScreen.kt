@@ -115,19 +115,19 @@ fun MainScreen(viewModel: AppViewModel) {
                 NavigationBarItem(
                     selected = selectedTab == "home",
                     onClick = { viewModel.setSelectedTab("home") },
-                    label = { Text("解析下载", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("下载", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Default.Home, contentDescription = "Parse") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == "history",
                     onClick = { viewModel.setSelectedTab("history") },
-                    label = { Text("本地历史", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("历史", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "History") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == "rankings",
                     onClick = { viewModel.setSelectedTab("rankings") },
-                    label = { Text("作者排行", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("排行", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Default.Star, contentDescription = "Rank") }
                 )
                 NavigationBarItem(
@@ -390,12 +390,6 @@ fun DownloaderTab(viewModel: AppViewModel) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "粘贴推文链接解析并无损保存本地与分类归档",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                )
             }
         }
 
@@ -499,56 +493,69 @@ fun DownloaderTab(viewModel: AppViewModel) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        // 右上角删除按钮：手动关闭解析结果卡片
-                        IconButton(
-                            onClick = { viewModel.clearParseResult() },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "关闭解析结果",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.padding(16.dp)) {
-                        // Author Metadata row
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Author Metadata row（与历史卡片一致：头像 + 作者信息 + 红色删除按钮）
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             AsyncImage(
                                 model = entity.authorAvatarUrl,
                                 contentDescription = "Author Avatar",
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(36.dp)
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = entity.authorName,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 14.sp
                                 )
                                 Text(
                                     text = "@${entity.authorHandle}",
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { viewModel.clearParseResult() }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "删除解析结果",
+                                    tint = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Video Description Title
-                        Text(
-                            text = entity.title,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        // 缩略图左、帖文文案右（与历史卡片一致）
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            if (entity.thumbnailUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = entity.thumbnailUrl,
+                                    contentDescription = "Video Thumbnail",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .width(100.dp)
+                                        .height(68.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+                            Text(
+                                text = entity.title,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -650,7 +657,6 @@ fun DownloaderTab(viewModel: AppViewModel) {
                             Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("立即下载", fontWeight = FontWeight.Bold)
-                        }
                         }
                     }
                 }

@@ -166,6 +166,16 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val versionLogs = remember {
         listOf(
             VersionLog(
+                version = "1.4.3",
+                date = "2026-07-31",
+                changes = listOf(
+                    "解析结果卡片排版与历史卡片统一，删除按钮改为红色垃圾桶图标",
+                    "下载通知文案优化，通知缩略图改为正方形",
+                    "底部导航名称精简：下载、历史、排行、关于",
+                    "修复部分机型桌面角标不显示的问题"
+                )
+            ),
+            VersionLog(
                 version = "1.4.2",
                 date = "2026-07-31",
                 changes = listOf(

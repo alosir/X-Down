@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.example.download.BadgeHelper
 import com.example.download.DownloadManager
 import com.example.download.DownloadState
 import com.example.update.AppUpdateManager
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import me.leolin.shortcutbadger.ShortcutBadger
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -121,11 +121,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (count != lastBadgeCount) {
                     lastBadgeCount = count
                     try {
-                        if (count > 0) {
-                            ShortcutBadger.applyCount(getApplication(), count)
-                        } else {
-                            ShortcutBadger.removeCount(getApplication())
-                        }
+                        BadgeHelper.applyBadgeCount(getApplication(), count)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
