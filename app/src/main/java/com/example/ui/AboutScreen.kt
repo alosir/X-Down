@@ -166,6 +166,13 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val versionLogs = remember {
         listOf(
             VersionLog(
+                version = "1.5.5",
+                date = "2026-08-20",
+                changes = listOf(
+                    "链接输入框新增一键清空操作"
+                )
+            ),
+            VersionLog(
                 version = "1.5.4",
                 date = "2026-07-31",
                 changes = listOf(
