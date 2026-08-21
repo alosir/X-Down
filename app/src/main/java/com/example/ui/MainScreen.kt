@@ -449,6 +449,24 @@ fun DownloaderTab(viewModel: AppViewModel) {
                             tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
+
+                    if (urlText.isNotEmpty()) {
+                        IconButton(
+                            onClick = { urlText = "" },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                    RoundedCornerShape(12.dp)
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "清空链接",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
                 }
             }
         }
