@@ -167,9 +167,10 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
         listOf(
             VersionLog(
                 version = "1.5.5",
-                date = "2026-08-20",
+                date = "2026-08-21",
                 changes = listOf(
-                    "链接输入框新增一键清空操作"
+                    "链接输入框新增一键清空操作",
+                    "优化应用图标显示效果"
                 )
             ),
             VersionLog(
