@@ -57,12 +57,21 @@ X-Down 是一款 Android 应用，用于解析并下载 Twitter / X 推文视频
 
 ## 三、发布流程（每次迭代按序执行）
 
+本项目采用**双发行渠道**（build flavor）：
+- `full`：GitHub 完整版，含应用内自更新（检查更新/下载安装包/新版本提醒），产出 **APK**
+- `play`：Google Play 版，按商店政策**移除自更新功能与 `REQUEST_INSTALL_PACKAGES` 权限**（通过 `BuildConfig.ENABLE_SELF_UPDATE` 开关 + `src/play/AndroidManifest.xml` 移除权限），产出 **AAB**
+
+每次迭代按序执行：
+
 1. 按上述清单更新所有版本号与更新记录
-2. 构建：`./gradlew assembleRelease`（签名自动读取项目根目录 `keystore.properties`）
-3. 验证 APK：`aapt2 dump badging app/build/outputs/apk/release/app-release.apk` 确认包名与版本号
+2. 构建两个包（签名自动读取项目根目录 `keystore.properties`）：
+   - GitHub 完整 APK：`./gradlew assembleFullRelease` → `app/build/outputs/apk/full/release/app-full-release.apk`
+   - Play 无自更新 AAB：`./gradlew bundlePlayRelease` → `app/build/outputs/bundle/playRelease/app-play-release.aab`
+3. 验证：`aapt2 dump badging` 确认包名与版本号；play 包需确认 manifest 已无 `REQUEST_INSTALL_PACKAGES`
 4. Git 提交并推送 `main`
 5. 打标签并推送：`git tag -a v<新版本号> -m "Release v<新版本号>" && git push origin v<新版本号>`
-6. 创建/更新 GitHub Release，上传 `app-release.apk`
+6. 创建/更新 GitHub Release，上传 **full 版 APK**
+7. Play 版本：将 **play 版 AAB** 上传至 Play Console（versionCode 需递增）
 
 ## 四、重要资产与注意事项
 

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.BuildConfig
 import com.example.update.UpdateState
 
 // ==================== 关于页面 ====================
@@ -275,8 +276,11 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                         }
                     },
                     actions = {
-                        TextButton(onClick = { viewModel.checkForUpdate() }) {
-                            Text("检查更新")
+                        // Google Play 渠道不提供应用内自更新入口
+                        if (BuildConfig.ENABLE_SELF_UPDATE) {
+                            TextButton(onClick = { viewModel.checkForUpdate() }) {
+                                Text("检查更新")
+                            }
                         }
                     }
                 )

@@ -52,6 +52,19 @@ android {
     debug {
     }
   }
+
+  // 双发行渠道：full（GitHub，含应用内自更新）与 play（Google Play，去除自更新以符合商店政策）
+  flavorDimensions += "distribution"
+  productFlavors {
+    create("full") {
+      dimension = "distribution"
+      buildConfigField("boolean", "ENABLE_SELF_UPDATE", "true")
+    }
+    create("play") {
+      dimension = "distribution"
+      buildConfigField("boolean", "ENABLE_SELF_UPDATE", "false")
+    }
+  }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11

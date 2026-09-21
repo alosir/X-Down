@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.BuildConfig
 import com.example.data.*
 import com.example.download.BadgeHelper
 import com.example.download.DownloadManager
@@ -363,7 +364,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // 每天最多自动触发一次检查（APP 启动时与每天首次进入更新记录页时调用）
+    // Google Play 渠道（ENABLE_SELF_UPDATE=false）不提供自更新，直接跳过
     fun maybeAutoCheckUpdate() {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) return
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         if (updatePrefs.getString(KEY_LAST_CHECK_DATE, "") == today) return
         updatePrefs.edit().putString(KEY_LAST_CHECK_DATE, today).apply()
@@ -371,6 +374,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkForUpdate(silent: Boolean = false) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) return
         viewModelScope.launch {
             if (!silent) {
                 showTopBubble("正在检查更新…")
