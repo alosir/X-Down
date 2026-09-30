@@ -23,7 +23,7 @@ android {
     applicationId = "com.alosir.xdown"
     minSdk = 24
     targetSdk = 36
-    versionCode = 14
+    versionCode = 15
     versionName = "1.5.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
