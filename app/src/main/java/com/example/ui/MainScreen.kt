@@ -344,7 +344,23 @@ fun MainScreen(viewModel: AppViewModel) {
             }
         }
     }
+
+    // Settings Dialog
+    if (showSettings) {
+        Dialog(
+            onDismissRequest = { showSettings = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
+            }
+        }
+    }
 }
+
 
 // ==========================================
 // Tab 1: Parser and Downloader Tab
@@ -1817,18 +1833,4 @@ fun localFileExists(context: android.content.Context, path: String): Boolean {
         File(path).exists()
     }
 
-    // Settings Dialog
-    if (showSettings) {
-        Dialog(
-            onDismissRequest = { showSettings = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
-            }
-        }
-    }
 }
