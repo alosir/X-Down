@@ -106,7 +106,59 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _openChangelogEvent = MutableStateFlow(false)
     val openChangelogEvent: StateFlow<Boolean> = _openChangelogEvent.asStateFlow()
 
+    // 通知点击定位下载任务：携带任务 id，首页队列滚动定位
+    private val _focusTaskEvent = MutableStateFlow<String?>(null)
+    val focusTaskEvent: StateFlow<String?> = _focusTaskEvent.asStateFlow()
+
+    fun requestFocusTask(taskId: String) {
+        _focusTaskEvent.value = taskId
+    }
+
+    fun consumeFocusTask() {
+        _focusTaskEvent.value = null
+    }
+
+    // ==================== 自定义保存位置 ====================
+    private val dlPrefs = application.getSharedPreferences("download_prefs", Context.MODE_PRIVATE)
+    private val _saveLocationEnabled = MutableStateFlow(dlPrefs.getBoolean("custom_save_enabled", false))
+    val saveLocationEnabled: StateFlow<Boolean> = _saveLocationEnabled.asStateFlow()
+
+    private val _saveTreeUri = MutableStateFlow(dlPrefs.getString("save_tree_uri", null))
+    val saveTreeUri: StateFlow<String?> = _saveTreeUri.asStateFlow()
+
+    fun setSaveLocationEnabled(enabled: Boolean) {
+        dlPrefs.edit().putBoolean("custom_save_enabled", enabled).apply()
+        _saveLocationEnabled.value = enabled
+        refreshFileStatus()
+    }
+
+    fun setSaveTreeUri(uri: String?) {
+        uri?.let { dlPrefs.edit().putString("save_tree_uri", it).apply() }
+        _saveTreeUri.value = uri
+    }
+
+    // 当前生效的自定义保存位置（开关关闭或未选择时为 null）
+    val currentSaveTreeUri: String?
+        get() = if (_saveLocationEnabled.value) _saveTreeUri.value else null
+
+    // ==================== 主题 ====================
+    val themeConfig: StateFlow<com.example.ui.theme.ThemeController.Config> =
+        com.example.ui.theme.ThemeController.config
+
+    fun selectThemePreset(preset: com.example.ui.theme.ThemePreset) {
+        com.example.ui.theme.ThemeController.setPreset(getApplication(), preset)
+    }
+
+    fun selectCustomTheme(color: androidx.compose.ui.graphics.Color) {
+        com.example.ui.theme.ThemeController.setCustomColor(getApplication(), color)
+    }
+
     init {
+        // 主题：加载持久化配置
+        com.example.ui.theme.ThemeController.init(application)
+        // 自定义保存位置：注入全局提供者（含恢复的历史任务）
+        DownloadManager.saveTreeUriProvider = { currentSaveTreeUri }
+
         viewModelScope.launch {
             downloadManager.downloadCompletions.collect { authorHandle ->
                 val handle = authorHandle.replace("@", "")
@@ -224,7 +276,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     repository.updateDownload(current.copy(downloadStatus = "Downloading"))
                 }
                 selections.forEach { (_, video) ->
-                    downloadManager.downloadVideo(entity, video)
+                    downloadManager.downloadVideo(entity, video, saveTreeUri = currentSaveTreeUri)
                 }
                 onSuccessDirectDownload()
                 refreshFileStatus()
@@ -243,7 +295,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 repository.updateDownload(current.copy(downloadStatus = "Downloading"))
             }
             warning.selectedVideos.forEach { video ->
-                downloadManager.downloadVideo(warning.entity, video, forceRedownload = true)
+                downloadManager.downloadVideo(warning.entity, video, forceRedownload = true, saveTreeUri = currentSaveTreeUri)
             }
             onStartDownload()
             refreshFileStatus()
@@ -262,7 +314,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 repository.updateDownload(current.copy(downloadStatus = "Downloading"))
             }
-            downloadManager.downloadVideo(entity, video, forceRedownload)
+            downloadManager.downloadVideo(entity, video, forceRedownload, saveTreeUri = currentSaveTreeUri)
             refreshFileStatus()
         }
     }

@@ -17,6 +17,14 @@ local.properties
 .env
 debug.keystore
 app/release/
+# 本地产出的安装包目录
+releases/
 # 签名密钥（本地私有，勿提交）
 keystore.properties
 *.jks
+
+# JVM 崩溃日志
+hs_err_pid*.log
+replay_pid*.log
+# 云盘重复副本
+*-(1).*

@@ -27,7 +27,12 @@ import com.example.update.UpdateState
 
 // ==================== 关于页面 ====================
 @Composable
-fun AboutTab(viewModel: AppViewModel, onOpenUrl: (String) -> Unit, onNavigateToChangelog: () -> Unit) {
+fun AboutTab(
+    viewModel: AppViewModel,
+    onOpenUrl: (String) -> Unit,
+    onNavigateToChangelog: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
     val context = LocalContext.current
     val versionName = viewModel.getAppVersionName()
     val hasNewVersion by viewModel.hasNewVersion.collectAsStateWithLifecycle()
@@ -88,6 +93,15 @@ fun AboutTab(viewModel: AppViewModel, onOpenUrl: (String) -> Unit, onNavigateToC
                     subtitle = "进入系统通知设置",
                     icon = Icons.Default.Notifications,
                     onClick = { viewModel.openAppNotificationSettings(context) }
+                )
+            }
+
+            item {
+                AboutItem(
+                    title = "更多设置",
+                    subtitle = "主题颜色与保存位置",
+                    icon = Icons.Default.Settings,
+                    onClick = onNavigateToSettings
                 )
             }
         }
@@ -166,6 +180,16 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     // 面向普通用户撰写：过滤与用户无关的信息（包名变更、纯开发向改动等）
     val versionLogs = remember {
         listOf(
+            VersionLog(
+                version = "1.6.0",
+                date = "2026-10-28",
+                changes = listOf(
+                    "新增「更多设置」：多种主题颜色随心切换，支持自定义取色",
+                    "支持自定义视频保存位置",
+                    "修复视频标题含表情符号时无法保存的问题",
+                    "下载更稳定，切换应用不易中断"
+                )
+            ),
             VersionLog(
                 version = "1.5.5",
                 date = "2026-08-21",

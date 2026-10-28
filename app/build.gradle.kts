@@ -23,8 +23,8 @@ android {
     applicationId = "com.alosir.xdown"
     minSdk = 24
     targetSdk = 36
-    versionCode = 15
-    versionName = "1.5.5"
+    versionCode = 16
+    versionName = "1.6.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -121,6 +121,7 @@ dependencies {
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   implementation(libs.shortcutbadger)
+  implementation(libs.androidx.documentfile)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

@@ -6,7 +6,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.AppViewModel
 import com.example.ui.MainScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -33,7 +35,8 @@ class MainActivity : ComponentActivity() {
     }
 
     setContent {
-      MyApplicationTheme {
+      val themeConfig by viewModel.themeConfig.collectAsStateWithLifecycle()
+      MyApplicationTheme(themeConfig = themeConfig) {
         MainScreen(viewModel = viewModel)
       }
     }
@@ -73,6 +76,11 @@ class MainActivity : ComponentActivity() {
     if (intent?.getStringExtra("open_changelog") == "true") {
       viewModel.setSelectedTab("about")
       viewModel.requestOpenChangelog()
+    }
+    // 通知点击：定位到指定下载任务
+    intent?.getStringExtra("focus_task")?.let {
+      viewModel.setSelectedTab("home")
+      viewModel.requestFocusTask(it)
     }
   }
 }

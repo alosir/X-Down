@@ -79,6 +79,9 @@ fun MainScreen(viewModel: AppViewModel) {
     // Changelog overlay state
     var showChangelog by remember { mutableStateOf(false) }
 
+    // Settings overlay state
+    var showSettings by remember { mutableStateOf(false) }
+
     // 系统通知点击后请求打开《更新记录》页
     val openChangelogEvent by viewModel.openChangelogEvent.collectAsStateWithLifecycle()
     LaunchedEffect(openChangelogEvent) {
@@ -165,7 +168,8 @@ fun MainScreen(viewModel: AppViewModel) {
                 "about" -> AboutTab(
                     viewModel = viewModel,
                     onOpenUrl = { url -> activeWebViewUrl = url },
-                    onNavigateToChangelog = { showChangelog = true }
+                    onNavigateToChangelog = { showChangelog = true },
+                    onNavigateToSettings = { showSettings = true }
                 )
             }
 
@@ -270,7 +274,6 @@ fun MainScreen(viewModel: AppViewModel) {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("系统检测到您的剪贴板包含有效的 X 视频分享链接：", fontSize = 13.sp)
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(8.dp),
@@ -307,7 +310,6 @@ fun MainScreen(viewModel: AppViewModel) {
                             }
                         }
                     }
-                    Text("是否立即进入首页查看视频详情并加入下载队列？", fontSize = 13.sp)
                 }
             },
             confirmButton = {
@@ -317,7 +319,7 @@ fun MainScreen(viewModel: AppViewModel) {
                         viewModel.setSelectedTab("home")
                     }
                 ) {
-                    Text("开始下载")
+                    Text("立即解析")
                 }
             },
             dismissButton = {
@@ -358,6 +360,26 @@ fun DownloaderTab(viewModel: AppViewModel) {
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // 通知点击定位：滚动到指定任务并短暂高亮
+    val focusTaskEvent by viewModel.focusTaskEvent.collectAsStateWithLifecycle()
+    var highlightTaskId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(focusTaskEvent) {
+        val taskId = focusTaskEvent ?: return@LaunchedEffect
+        val queueIndex = activeTasks.indexOfFirst { it.id == taskId }
+        if (queueIndex >= 0) {
+            val baseItems = 3 +
+                (if (parseState.parseError != null) 1 else 0) +
+                parseState.parsedEntity?.getVideos()?.groupBy { it.videoIndex }
+                    ?.filterKeys { it !in parseState.dismissedIndices }?.size.let { it ?: 0 }
+            // +1 为「实时下载队列」标题项
+            listState.animateScrollToItem(baseItems + 1 + queueIndex)
+            highlightTaskId = taskId
+            kotlinx.coroutines.delay(1600)
+            if (highlightTaskId == taskId) highlightTaskId = null
+        }
+        viewModel.consumeFocusTask()
+    }
 
     LazyColumn(
         state = listState,
@@ -495,7 +517,7 @@ fun DownloaderTab(viewModel: AppViewModel) {
                 } else {
                     Icon(imageVector = Icons.Default.Search, contentDescription = "Parse")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("解析推文视频", fontWeight = FontWeight.Bold)
+                    Text("立即解析", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -650,7 +672,7 @@ fun DownloaderTab(viewModel: AppViewModel) {
                             ) {
                                 Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("立即下载", fontWeight = FontWeight.Bold)
+                                Text("下载", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -698,20 +720,26 @@ fun DownloaderTab(viewModel: AppViewModel) {
             }
 
             items(activeTasks) { task ->
-                ActiveQueueItemCard(task, viewModel)
+                ActiveQueueItemCard(task, viewModel, highlight = highlightTaskId == task.id)
             }
         }
     }
 }
 
 @Composable
-fun ActiveQueueItemCard(task: ActiveDownloadTask, viewModel: AppViewModel) {
+fun ActiveQueueItemCard(task: ActiveDownloadTask, viewModel: AppViewModel, highlight: Boolean = false) {
     val state by task.state.collectAsStateWithLifecycle()
 
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = if (highlight) 2.dp else 0.dp,
+                color = if (highlight) MaterialTheme.colorScheme.primary else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -1008,7 +1036,7 @@ fun HistoryItemCard(
                 qualityList.forEach { video ->
                     val videoIndexInAll = videos.indexOf(video)
                     val localPath = paths[videoIndexInAll]
-                    val isDownloaded = localPath != null && File(localPath).exists()
+                    val isDownloaded = localPath != null && localFileExists(context, localPath)
                     val greenColor = Color(0xFF2E7D32)
                     val greenBg = Color(0xFFE8F5E9)
                     val greenText = Color(0xFF1B5E20)
@@ -1772,6 +1800,34 @@ fun InAppWebViewDialog(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// 判断本地记录路径是否存在（兼容 content:// SAF 路径）
+fun localFileExists(context: android.content.Context, path: String): Boolean {
+    return if (path.startsWith("content:")) {
+        try {
+            context.contentResolver.openFileDescriptor(android.net.Uri.parse(path), "r")?.use { true } ?: false
+        } catch (e: Exception) {
+            false
+        }
+    } else {
+        File(path).exists()
+    }
+
+    // Settings Dialog
+    if (showSettings) {
+        Dialog(
+            onDismissRequest = { showSettings = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
             }
         }
     }

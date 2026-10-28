@@ -51,6 +51,7 @@ data class ActiveDownloadTask(
     private val onTaskUpdated: () -> Unit,
     private val onDownloadSuccess: (String) -> Unit,
     private val badgeCountProvider: () -> Int = { 0 },
+    private val saveTreeUri: String? = null,
     val forceRedownload: Boolean = false
 ) {
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -140,6 +141,21 @@ data class ActiveDownloadTask(
         }
     }
 
+    // 点击通知打开首页并定位到该任务
+    private fun taskPendingIntent(): android.app.PendingIntent {
+        val intent = android.content.Intent(context, com.example.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_tab", "home")
+            putExtra("focus_task", id)
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        } else {
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        return android.app.PendingIntent.getActivity(context, progressNotificationId, intent, flags)
+    }
+
     private suspend fun showProgressNotification(progress: Float) {
         try {
             createProgressNotificationChannel()
@@ -151,8 +167,9 @@ data class ActiveDownloadTask(
                 .setContentText("@${authorHandle}：$title")
                 .setProgress(100, percent, percent <= 0)
                 .setNumber(badgeCountProvider())
-                // 鸿蒙桌面角标不统计 ongoing 常驻通知，改为非常驻使其计入角标
-                .setOngoing(false)
+                // 常驻通知：作为前台服务通知保活下载，不可滑动清除
+                .setOngoing(true)
+                .setContentIntent(taskPendingIntent())
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -164,7 +181,7 @@ data class ActiveDownloadTask(
         }
     }
 
-    // 暂停/失败等非下载中状态的通知（非 ongoing，计入鸿蒙角标；缩略图复用已加载的缓存）
+    // 暂停/失败等非下载中状态的通知（非 ongoing；缩略图复用已加载的缓存）
     private fun showStateNotification(stateText: String) {
         try {
             createProgressNotificationChannel()
@@ -174,6 +191,7 @@ data class ActiveDownloadTask(
                 .setContentText("@${authorHandle}：$title")
                 .setNumber(badgeCountProvider())
                 .setOngoing(false)
+                .setContentIntent(taskPendingIntent())
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -201,11 +219,15 @@ data class ActiveDownloadTask(
             finalFolder.mkdirs()
         }
 
+        // 恢复/下载时未显式指定时，从全局提供者取当前自定义保存位置
+        val effectiveTreeUri = saveTreeUri ?: DownloadManager.peekSaveTreeUri()
+
         // Format name as "@username：caption_first_30"
-        val caption = title.trim()
-        val captionFirst30 = if (caption.length > 30) caption.substring(0, 30) else caption
+        // 先清洗标题（去 URL、emoji 段→下划线、特殊字符→下划线），再截取，避免部分机型保存 emoji 文件名失败
+        val sanitizedTitle = FilenameSanitizer.sanitize(title)
+        val captionFirst30 = if (sanitizedTitle.length > 30) sanitizedTitle.substring(0, 30) else sanitizedTitle
         val rawBaseName = "@${authorHandle}：$captionFirst30"
-        var sanitizedBaseName = rawBaseName.replace("[\"/\\\\:*?<>|\\r\\n\\t]".toRegex(), "_").trim()
+        var sanitizedBaseName = FilenameSanitizer.sanitize(rawBaseName)
         if (sanitizedBaseName.isEmpty()) {
             sanitizedBaseName = tweetId
         }
@@ -233,7 +255,7 @@ data class ActiveDownloadTask(
         if (!forceRedownload) {
             val pathsMap = currentEntity.getLocalFilePaths()
             val existingPath = pathsMap[targetKey]
-            if (existingPath != null && File(existingPath).exists()) {
+            if (existingPath != null && pathExists(existingPath)) {
                 _state.value = DownloadState.Success
                 onTaskUpdated()
                 return
@@ -241,7 +263,11 @@ data class ActiveDownloadTask(
 
             if (destFile.exists()) {
                 _state.value = DownloadState.Success
-                val finalPath = exportVideoToGallery(destFile, "$targetFileName.mp4")
+                val finalPath = if (!effectiveTreeUri.isNullOrEmpty()) {
+                    exportVideoToTree(destFile, effectiveTreeUri, "$targetFileName.mp4")
+                } else {
+                    exportVideoToGallery(destFile, "$targetFileName.mp4")
+                }
                 updateEntityCompleted(finalPath)
                 onTaskUpdated()
                 onDownloadSuccess(authorHandle)
@@ -358,7 +384,12 @@ data class ActiveDownloadTask(
                     tempFile.renameTo(destFile)
                     _state.value = DownloadState.Success
                     cancelProgressNotification()
-                    val finalPath = exportVideoToGallery(destFile, "$targetFileName.mp4")
+                    // 自定义保存位置：写入用户所选 SAF 目录；否则导出系统相册
+                    val finalPath = if (!effectiveTreeUri.isNullOrEmpty()) {
+                        exportVideoToTree(destFile, effectiveTreeUri, "$targetFileName.mp4")
+                    } else {
+                        exportVideoToGallery(destFile, "$targetFileName.mp4")
+                    }
                     updateEntityCompleted(finalPath)
                     onTaskUpdated()
 
@@ -468,6 +499,50 @@ data class ActiveDownloadTask(
                 return realPath!!
             }
             return localFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return localFile.absolutePath
+        }
+    }
+
+    // 判断已记录路径是否仍存在（兼容 content:// SAF 路径与普通文件路径）
+    private fun pathExists(path: String): Boolean {
+        return if (path.startsWith("content:")) {
+            try {
+                context.contentResolver.openFileDescriptor(android.net.Uri.parse(path), "r")?.use { true } ?: false
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            File(path).exists()
+        }
+    }
+
+    // 导出到用户自定义的 SAF 目录
+    private fun exportVideoToTree(localFile: File, treeUri: String, fileName: String): String {
+        try {
+            val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(treeUri))
+                ?: return localFile.absolutePath
+            var target = tree.createFile("video/mp4", fileName)
+            if (target == null) {
+                // 个别 provider 对重名返回 null：加时间戳前缀重试
+                target = tree.createFile("video/mp4", "${System.currentTimeMillis()}_$fileName")
+            }
+            if (target == null) return localFile.absolutePath
+
+            context.contentResolver.openOutputStream(target.uri)?.use { output ->
+                java.io.FileInputStream(localFile).use { input ->
+                    input.copyTo(output)
+                }
+            } ?: return localFile.absolutePath
+
+            val resultUri = target.uri.toString()
+            try {
+                localFile.delete()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return resultUri
         } catch (e: Exception) {
             e.printStackTrace()
             return localFile.absolutePath
@@ -627,6 +702,26 @@ class DownloadManager private constructor(
             s is DownloadState.Downloading || s is DownloadState.Paused || s is DownloadState.Failed
         }
         saveTasks()
+        updateFgService()
+    }
+
+    // 前台服务保活：有任务下载中则启动服务提升进程优先级，无下载中任务则停止
+    @Volatile
+    private var fgServiceStarted = false
+
+    private fun updateFgService() {
+        try {
+            val anyDownloading = _tasks.values.any { it.state.value is DownloadState.Downloading }
+            if (anyDownloading && !fgServiceStarted) {
+                DownloadForegroundService.start(context)
+                fgServiceStarted = true
+            } else if (!anyDownloading && fgServiceStarted) {
+                DownloadForegroundService.stop(context)
+                fgServiceStarted = false
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     // 将当前未完成的任务写入本地
@@ -682,6 +777,7 @@ class DownloadManager private constructor(
                         onTaskUpdated = { handleTaskUpdated() },
                         onDownloadSuccess = { authorHandle -> emitCompletedDownload(authorHandle) },
                         badgeCountProvider = { badgeCount },
+                        saveTreeUri = peekSaveTreeUri(),
                         forceRedownload = false
                     )
                     task.restoreAsPaused()
@@ -698,7 +794,14 @@ class DownloadManager private constructor(
     @Volatile
     private var badgeCount = 0
 
-    fun downloadVideo(entity: TweetDownloadEntity, video: VideoQuality, forceRedownload: Boolean = false) {
+    private fun effectiveTree(explicit: String?): String? = explicit ?: saveTreeUriProvider?.invoke()
+
+    fun downloadVideo(
+        entity: TweetDownloadEntity,
+        video: VideoQuality,
+        forceRedownload: Boolean = false,
+        saveTreeUri: String? = null
+    ) {
         val taskId = "${entity.tweetId}_${video.videoIndex}_${video.quality}"
         if (_tasks.containsKey(taskId)) {
             val task = _tasks[taskId]!!
@@ -750,6 +853,7 @@ class DownloadManager private constructor(
             onTaskUpdated = { handleTaskUpdated() },
             onDownloadSuccess = { authorHandle -> emitCompletedDownload(authorHandle) },
             badgeCountProvider = { badgeCount },
+            saveTreeUri = effectiveTree(saveTreeUri),
             forceRedownload = forceRedownload
         )
 
@@ -779,6 +883,12 @@ class DownloadManager private constructor(
     companion object {
         @Volatile
         private var INSTANCE: DownloadManager? = null
+
+        // 自定义保存位置提供者（由 ViewModel 注入；静态保存以便 ActiveDownloadTask 与恢复任务读取）
+        @Volatile
+        var saveTreeUriProvider: (() -> String?)? = null
+
+        fun peekSaveTreeUri(): String? = saveTreeUriProvider?.invoke()
 
         fun getInstance(context: Context, repository: TweetRepository): DownloadManager {
             return INSTANCE ?: synchronized(this) {
