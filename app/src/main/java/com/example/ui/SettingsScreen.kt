@@ -104,10 +104,10 @@ fun SettingsScreen(viewModel: AppViewModel, onBack: () -> Unit) {
             // ==================== 自定义主题 ====================
             Text("自定义主题", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
-            SWATCHES.chunked(4).forEach { rowItems ->
+            SWATCHES.chunked(6).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     rowItems.forEach { preview ->
                         ThemeSwatch(
@@ -120,7 +120,7 @@ fun SettingsScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    repeat(4 - rowItems.size) {
+                    repeat(6 - rowItems.size) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }

@@ -464,7 +464,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     _updateState.value = UpdateState.Idle
                 } else if (isNetworkError(e)) {
                     _updateState.value = UpdateState.Idle
-                    showTopBubble("网络异常，请检查网络连接")
+                    showTopBubble("GitHub 网络无法连接，请开启科学上网工具后重试")
                 } else {
                     _updateState.value = UpdateState.Error(e.message ?: "检查更新失败")
                 }
@@ -477,9 +477,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         while (t != null) {
             if (t is java.net.UnknownHostException ||
                 t is java.net.ConnectException ||
+                t is java.net.SocketException ||
                 t is java.net.SocketTimeoutException ||
                 t is java.net.NoRouteToHostException ||
-                t is javax.net.ssl.SSLException
+                t is javax.net.ssl.SSLException ||
+                t is java.io.InterruptedIOException
+            ) {
+                return true
+            }
+            val msg = t.message ?: ""
+            if (msg.contains("Unable to resolve host", ignoreCase = true) ||
+                msg.contains("Failed to connect", ignoreCase = true) ||
+                msg.contains("Connection reset", ignoreCase = true) ||
+                msg.contains("timeout", ignoreCase = true)
             ) {
                 return true
             }

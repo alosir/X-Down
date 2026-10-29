@@ -14,8 +14,9 @@ object FilenameSanitizer {
     private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
 
     // 常见 emoji 区段：杂符、装饰符号、表情、交通、扩展、旗帜、按键符号、VS16 变体、ZWJ 连接符
+    // 注意：Java 正则中 BMP 字符用 \uXXXX，补充平面必须用 \x{XXXXX}，\u{...} 会抛 PatternSyntaxException
     private val EMOJI_REGEX = Regex(
-        "[\\u2190-\\u2BFF\\uFE00-\\uFE0F\\u200D\\u{1F000}-\\u{1FAFF}\\u{1F1E6}-\\u{1F1FF}\\u{2300}-\\u{23FF}\\u{2B50}\\u{203C}\\u{2049}\\u{3030}]+"
+        "[\\u2190-\\u2BFF\\uFE00-\\uFE0F\\u200D\\x{1F000}-\\x{1FAFF}\\x{1F1E6}-\\x{1F1FF}\\u2300-\\u23FF\\u2B50\\u203C\\u2049\\u3030]+"
     )
 
     // 文件名非法/易出问题字符

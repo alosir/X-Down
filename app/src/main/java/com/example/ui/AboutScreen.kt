@@ -181,6 +181,14 @@ fun ChangelogScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     val versionLogs = remember {
         listOf(
             VersionLog(
+                version = "1.6.1",
+                date = "2026-10-29",
+                changes = listOf(
+                    "修复部分视频下载时应用闪退的问题",
+                    "检查更新时的网络提示更友好"
+                )
+            ),
+            VersionLog(
                 version = "1.6.0",
                 date = "2026-10-28",
                 changes = listOf(
